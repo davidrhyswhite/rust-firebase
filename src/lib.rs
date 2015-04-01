@@ -7,17 +7,17 @@ extern crate "rustc-serialize" as rustc_serialize;
 use std::str;
 use curl::http;
 
-pub struct Firebase<'a> {
-    base_uri: &'a str 
+pub struct Firebase {
+    base_uri: String 
 }
 
-impl <'a> Firebase<'a> {
+impl Firebase {
     pub fn new(base_uri: &str) -> Firebase {
-        Firebase { base_uri: base_uri }
+        Firebase { base_uri: base_uri.to_string() }
     }
 
     pub fn push(self, path: &str, data: &str) -> Response {
-        let mut url = self.base_uri.to_string();
+        let mut url = self.base_uri;
         url.push_str(path);
         
         let res = http::handle()
