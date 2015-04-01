@@ -1,0 +1,13 @@
+[package]
+
+name = "firebase"
+version = "0.0.1"
+description = "Rust based library for working with Firebase"
+readme = "README.md"
+repository = "https://github.com/davidrhyswhite/rust-firebase"
+license = "MIT"
+authors = ["David White <david.white@spry-soft.com>"]
+
+[dependencies]
+curl = "0.2"
+rustc-serialize = "0.3"
