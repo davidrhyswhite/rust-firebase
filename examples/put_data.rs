@@ -7,4 +7,5 @@ fn main() {
     let response = firebase.push("/api/messages.json", "{\"name\":\"David\",\"message\":\"Hello from Rust\"}");
 
     println!("Response body: {:?}", response.body);
+    println!("Response code: {:?}", response.code);
 }

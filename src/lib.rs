@@ -8,7 +8,7 @@ use std::str;
 use curl::http;
 
 pub struct Firebase {
-    base_uri: String 
+    base_uri: String,
 }
 
 impl Firebase {
@@ -29,10 +29,14 @@ impl Firebase {
             Err(..) => "Unable to parse"
         };
 
-        return Response { body: body.to_string() };
+        return Response {
+            body: body.to_string(),
+            code: res.get_code(),
+        };
     }
 }
 
 pub struct Response {
-    pub body: String
+    pub body: String,
+    pub code: u32,
 }
