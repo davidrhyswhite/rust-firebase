@@ -40,3 +40,12 @@ pub struct Response {
     pub body: String,
     pub code: u32,
 }
+
+impl Response {
+    pub fn is_success(self) -> bool {
+        if self.code < 400 {
+            return true;
+        }
+        return false;
+    }
+}

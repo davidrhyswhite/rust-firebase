@@ -4,8 +4,9 @@ use firebase::Firebase;
 
 fn main() {
     let firebase = Firebase::new("https://shining-torch-7752.firebaseio.com");
-    let response = firebase.push("/api/messages.json", "{\"name\":\"David\",\"message\":\"Hello from Rust\"}");
+    let res = firebase.push("/api/messages.json", "{\"name\":\"David\",\"message\":\"Hello from Rust\"}");
 
-    println!("Response body: {:?}", response.body);
-    println!("Response code: {:?}", response.code);
+    println!("Response body: {:?}", res.body);
+    println!("Response code: {:?}", res.code);
+    println!("Response success: {:?}", res.is_success());
 }
