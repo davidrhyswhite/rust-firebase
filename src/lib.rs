@@ -16,6 +16,25 @@ impl Firebase {
         Firebase { base_uri: base_uri.to_string() }
     }
 
+    pub fn set(self, path: &str, data: &str) -> Response {
+        let mut url = self.base_uri;
+        url.push_str(path);
+        
+        let res = http::handle()
+            .put(url, data)
+            .exec().unwrap();
+                                                    
+        let body = match str::from_utf8(res.get_body()) {
+            Ok(b) => b,
+            Err(..) => "Unable to parse"
+        };
+
+        return Response {
+            body: body.to_string(),
+            code: res.get_code(),
+        };
+    }
+
     pub fn push(self, path: &str, data: &str) -> Response {
         let mut url = self.base_uri;
         url.push_str(path);
