@@ -1,8 +1,8 @@
 #![crate_name = "firebase"]
 #![crate_type = "rlib"]
 
-extern crate curl;
-extern crate "rustc-serialize" as rustc_serialize;
+ extern crate curl;
+extern crate rustc_serialize;
 
 use std::str;
 use curl::http;
@@ -54,6 +54,8 @@ impl Firebase {
         };
     }
 }
+
+struct Request;
 
 pub struct Response {
     pub body: String,
