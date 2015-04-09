@@ -1,7 +1,7 @@
 #![crate_name = "firebase"]
 #![crate_type = "rlib"]
 
- extern crate curl;
+extern crate curl;
 extern crate rustc_serialize;
 
 use std::str;
@@ -17,32 +17,24 @@ impl Firebase {
     }
 
     pub fn set(self, path: &str, data: &str) -> Response {
-        let mut url = self.base_uri;
-        url.push_str(path);
-        
-        let res = http::handle()
-            .put(url, data)
-            .exec().unwrap();
-                                                    
-        let body = match str::from_utf8(res.get_body()) {
-            Ok(b) => b,
-            Err(..) => "Unable to parse"
-        };
-
-        return Response {
-            body: body.to_string(),
-            code: res.get_code(),
-        };
+        self.request(Method::PUT, path, data)
     }
 
     pub fn push(self, path: &str, data: &str) -> Response {
+        self.request(Method::POST, path, data)
+    }
+
+    fn request(self, method: Method, path: &str, data: &str) -> Response {
         let mut url = self.base_uri;
         url.push_str(path);
-        
-        let res = http::handle()
-            .post(url, data)
-            .exec().unwrap();
-                                                    
+        let mut handler = http::handle();
+          
+        let req = match method {
+            Method::POST => handler.post(url, data),
+            Method::PUT => handler.put(url, data), 
+        };
+        let res = req.exec().unwrap();
+
         let body = match str::from_utf8(res.get_body()) {
             Ok(b) => b,
             Err(..) => "Unable to parse"
@@ -55,7 +47,10 @@ impl Firebase {
     }
 }
 
-struct Request;
+enum Method {
+    POST,
+    PUT,
+}
 
 pub struct Response {
     pub body: String,

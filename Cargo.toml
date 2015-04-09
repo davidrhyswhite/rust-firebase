@@ -1,8 +1,8 @@
 [package]
 
 name = "firebase"
-version = "0.0.1"
-description = "Rust based library for working with Firebase"
+version = "0.1.0"
+description = "Rust based library for working with Firebase, currently still under heavy development"
 readme = "README.md"
 repository = "https://github.com/davidrhyswhite/rust-firebase"
 license = "MIT"
