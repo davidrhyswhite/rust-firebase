@@ -16,22 +16,27 @@ impl Firebase {
         Firebase { base_uri: base_uri.to_string() }
     }
 
+    pub fn get(self, path: &str) -> Response {
+        self.request(Method::GET, path, Some(""))
+    }
+
     pub fn set(self, path: &str, data: &str) -> Response {
-        self.request(Method::PUT, path, data)
+        self.request(Method::PUT, path, Some(data))
     }
 
     pub fn push(self, path: &str, data: &str) -> Response {
-        self.request(Method::POST, path, data)
+        self.request(Method::POST, path, Some(data))
     }
 
-    fn request(self, method: Method, path: &str, data: &str) -> Response {
+    fn request(self, method: Method, path: &str, data: Option<&str>) -> Response {
         let mut url = self.base_uri;
         url.push_str(path);
         let mut handler = http::handle();
-          
+         
         let req = match method {
-            Method::POST => handler.post(url, data),
-            Method::PUT => handler.put(url, data), 
+            Method::GET => handler.get(url), 
+            Method::POST => handler.post(url, data.unwrap()),
+            Method::PUT => handler.put(url, data.unwrap()),
         };
         let res = req.exec().unwrap();
 
@@ -48,6 +53,7 @@ impl Firebase {
 }
 
 enum Method {
+    GET,
     POST,
     PUT,
 }
