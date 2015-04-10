@@ -7,13 +7,14 @@ extern crate rustc_serialize;
 use std::str;
 use curl::http;
 
-pub struct Firebase {
-    base_uri: String,
+#[derive(Copy, Clone)]
+pub struct Firebase<'a> {
+    base_uri: &'a str,
 }
 
-impl Firebase {
-    pub fn new(base_uri: &str) -> Firebase {
-        Firebase { base_uri: base_uri.to_string() }
+impl<'a> Firebase<'a> {
+    pub fn new(base_uri: &'a str) -> Firebase {
+        Firebase { base_uri: base_uri }
     }
 
     pub fn get(self, path: &str) -> Response {
@@ -28,15 +29,21 @@ impl Firebase {
         self.request(Method::POST, path, Some(data))
     }
 
+    pub fn update(self, path: &str, data: &str) -> Response {
+        self.request(Method::PATCH, path, Some(data))
+    }
+
     fn request(self, method: Method, path: &str, data: Option<&str>) -> Response {
-        let mut url = self.base_uri;
+        let mut url = self.base_uri.to_string();
         url.push_str(path);
+
         let mut handler = http::handle();
          
         let req = match method {
             Method::GET => handler.get(url), 
             Method::POST => handler.post(url, data.unwrap()),
             Method::PUT => handler.put(url, data.unwrap()),
+            Method::PATCH => handler.patch(url, data.unwrap()),
         };
         let res = req.exec().unwrap();
 
@@ -56,6 +63,7 @@ enum Method {
     GET,
     POST,
     PUT,
+    PATCH,
 }
 
 pub struct Response {

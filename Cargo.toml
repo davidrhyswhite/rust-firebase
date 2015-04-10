@@ -8,6 +8,8 @@ repository = "https://github.com/davidrhyswhite/rust-firebase"
 license = "MIT"
 authors = ["David White <david.white@spry-soft.com>"]
 
+[dependencies.curl]
+git  = "https://github.com/davidrhyswhite/curl-rust.git"
+
 [dependencies]
-curl = "0.2"
 rustc-serialize = "0.3"
