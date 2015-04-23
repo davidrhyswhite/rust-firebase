@@ -32,6 +32,10 @@ impl<'a> Firebase<'a> {
     pub fn update(self, path: &str, data: &str) -> Response {
         self.request(Method::PATCH, path, Some(data))
     }
+    
+    pub fn delete(self, path: &str) -> Response {
+        self.request(Method::DELETE, path, Some(""))
+    }
 
     fn request(self, method: Method, path: &str, data: Option<&str>) -> Response {
         let mut url = self.base_uri.to_string();
@@ -44,6 +48,7 @@ impl<'a> Firebase<'a> {
             Method::POST => handler.post(url, data.unwrap()),
             Method::PUT => handler.put(url, data.unwrap()),
             Method::PATCH => handler.patch(url, data.unwrap()),
+            Method::DELETE => handler.delete(url)
         };
         let res = req.exec().unwrap();
 
@@ -64,6 +69,7 @@ enum Method {
     POST,
     PUT,
     PATCH,
+    DELETE,
 }
 
 pub struct Response {
