@@ -17,34 +17,34 @@ impl<'a> Firebase<'a> {
         Firebase { base_uri: base_uri }
     }
 
-    pub fn get(self, path: &str) -> Response {
+    pub fn get(&self, path: &str) -> Response {
         self.request(Method::GET, path, Some(""))
     }
 
-    pub fn set(self, path: &str, data: &str) -> Response {
+    pub fn set(&self, path: &str, data: &str) -> Response {
         self.request(Method::PUT, path, Some(data))
     }
 
-    pub fn push(self, path: &str, data: &str) -> Response {
+    pub fn push(&self, path: &str, data: &str) -> Response {
         self.request(Method::POST, path, Some(data))
     }
 
-    pub fn update(self, path: &str, data: &str) -> Response {
+    pub fn update(&self, path: &str, data: &str) -> Response {
         self.request(Method::PATCH, path, Some(data))
     }
-    
-    pub fn delete(self, path: &str) -> Response {
+
+    pub fn delete(&self, path: &str) -> Response {
         self.request(Method::DELETE, path, Some(""))
     }
 
-    fn request(self, method: Method, path: &str, data: Option<&str>) -> Response {
+    fn request(&self, method: Method, path: &str, data: Option<&str>) -> Response {
         let mut url = self.base_uri.to_string();
         url.push_str(path);
 
         let mut handler = http::handle();
-         
+
         let req = match method {
-            Method::GET => handler.get(url), 
+            Method::GET => handler.get(url),
             Method::POST => handler.post(url, data.unwrap()),
             Method::PUT => handler.put(url, data.unwrap()),
             Method::PATCH => handler.patch(url, data.unwrap()),
@@ -78,7 +78,7 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn is_success(self) -> bool {
+    pub fn is_success(&self) -> bool {
         if self.code < 400 {
             return true;
         }
