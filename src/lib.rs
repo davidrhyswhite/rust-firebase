@@ -1,46 +1,47 @@
-#![crate_name = "firebase"]
-#![crate_type = "rlib"]
-
 extern crate curl;
-extern crate rustc_serialize;
 
 use std::str;
 use curl::http;
 
-#[derive(Copy, Clone)]
-pub struct Firebase<'a> {
-    base_uri: &'a str,
+pub struct Firebase {
+    base_uri: String,
 }
 
-impl<'a> Firebase<'a> {
-    pub fn new(base_uri: &'a str) -> Firebase {
-        Firebase { base_uri: base_uri }
+impl Firebase {
+    pub fn new(base_uri: &str) -> Firebase {
+        Firebase {
+            base_uri: base_uri.to_string(),
+        }
     }
 
-    pub fn get(&self, path: &str) -> Response {
-        self.request(Method::GET, path, Some(""))
+    pub fn at(&self, path: &str) -> Firebase {
+        Firebase {
+            base_uri: self.base_uri.clone() + path,
+        }
     }
 
-    pub fn set(&self, path: &str, data: &str) -> Response {
-        self.request(Method::PUT, path, Some(data))
+    pub fn get(&self) -> Response {
+        self.request(Method::GET, None)
     }
 
-    pub fn push(&self, path: &str, data: &str) -> Response {
-        self.request(Method::POST, path, Some(data))
+    pub fn set(&self, data: &str) -> Response {
+        self.request(Method::PUT, Some(data))
     }
 
-    pub fn update(&self, path: &str, data: &str) -> Response {
-        self.request(Method::PATCH, path, Some(data))
+    pub fn push(&self, data: &str) -> Response {
+        self.request(Method::POST, Some(data))
     }
 
-    pub fn delete(&self, path: &str) -> Response {
-        self.request(Method::DELETE, path, Some(""))
+    pub fn update(&self, data: &str) -> Response {
+        self.request(Method::PATCH, Some(data))
     }
 
-    fn request(&self, method: Method, path: &str, data: Option<&str>) -> Response {
-        let mut url = self.base_uri.to_string();
-        url.push_str(path);
+    pub fn delete(&self) -> Response {
+        self.request(Method::DELETE, None)
+    }
 
+    fn request(&self, method: Method, data: Option<&str>) -> Response {
+        let url = &self.base_uri as &str;
         let mut handler = http::handle();
 
         let req = match method {
