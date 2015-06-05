@@ -11,5 +11,3 @@ authors = ["David White <david.white@spry-soft.com>"]
 [dependencies.curl]
 git  = "https://github.com/davidrhyswhite/curl-rust.git"
 
-[dependencies]
-rustc-serialize = "0.3"
