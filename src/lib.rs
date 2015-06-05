@@ -41,15 +41,15 @@ impl Firebase {
     }
 
     fn request(&self, method: Method, data: Option<&str>) -> Response {
-        let url = &self.base_uri as &str;
+        let url: &str = &self.base_uri;
         let mut handler = http::handle();
 
         let req = match method {
-            Method::GET => handler.get(url),
-            Method::POST => handler.post(url, data.unwrap()),
-            Method::PUT => handler.put(url, data.unwrap()),
-            Method::PATCH => handler.patch(url, data.unwrap()),
-            Method::DELETE => handler.delete(url)
+            Method::GET     => handler.get(url),
+            Method::POST    => handler.post(url, data.unwrap()),
+            Method::PUT     => handler.put(url, data.unwrap()),
+            Method::PATCH   => handler.patch(url, data.unwrap()),
+            Method::DELETE  => handler.delete(url)
         };
         let res = req.exec().unwrap();
 
