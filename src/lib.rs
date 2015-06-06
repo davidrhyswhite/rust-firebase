@@ -44,42 +44,40 @@ impl Firebase {
     }
 
     pub fn get(&self) -> Response {
-        self.request(Method::GET, None, None)
+        self.request(Method::GET, None)
     }
 
     fn get_params(&self, params: String) -> Response {
-        self.request(Method::GET, None, Some(params))
+        let url = if self.base_uri.find("?").is_some() {
+            format!("{}&{}", &self.base_uri, params)
+        } else {
+            format!("{}?{}", &self.base_uri, params)
+        };
+
+        Firebase::request_url(&url, Method::GET, None)
     }
 
     pub fn set(&self, data: &str) -> Response {
-        self.request(Method::PUT, Some(data), None)
+        self.request(Method::PUT, Some(data))
     }
 
     pub fn push(&self, data: &str) -> Response {
-        self.request(Method::POST, Some(data), None)
+        self.request(Method::POST, Some(data))
     }
 
     pub fn update(&self, data: &str) -> Response {
-        self.request(Method::PATCH, Some(data), None)
+        self.request(Method::PATCH, Some(data))
     }
 
     pub fn delete(&self) -> Response {
-        self.request(Method::DELETE, None, None)
+        self.request(Method::DELETE, None)
     }
 
-    fn request(&self, method: Method, data: Option<&str>, params: Option<String>) -> Response {
-        let url = if let Some(args) = params {
-            if self.base_uri.find("?").is_some() {
-                format!("{}&{}", &self.base_uri, args)
-            } else {
-                format!("{}?{}", &self.base_uri, args)
-            }
-        } else {
-            // TODO: FIX SO THIS DOESN'T HAPPEN
-            self.base_uri.clone()
-        };
+    fn request(&self, method: Method, data: Option<&str>) -> Response {
+        Firebase::request_url(&self.base_uri, method, data)
+    }
 
-        let url: &str = &url;
+    fn request_url(url: &str, method: Method, data: Option<&str>) -> Response {
         let mut handler = http::handle();
 
         let req = match method {
