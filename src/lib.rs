@@ -104,32 +104,32 @@ impl Firebase {
         return &self.base_uri;
     }
 
-    pub fn orderBy(&self, key: &str) -> ParamsRequest {
-        self.params_request(orderByStr(key))
+    pub fn order_by(&self, key: &str) -> ParamsRequest {
+        self.params_request(order_by_str(key))
     }
 
-    pub fn limitToFirst(&self, count: u32) -> ParamsRequest {
-        self.params_request(limitToFirstStr(count))
+    pub fn limit_to_first(&self, count: u32) -> ParamsRequest {
+        self.params_request(limit_to_first_str(count))
     }
 
-    pub fn limitToLast(&self, count: u32) -> ParamsRequest {
-        self.params_request(limitToLastStr(count))
+    pub fn limit_to_last(&self, count: u32) -> ParamsRequest {
+        self.params_request(limit_to_last_str(count))
     }
 
-    pub fn startAt(&self, index: u32) -> ParamsRequest {
-        self.params_request(startAtStr(index))
+    pub fn start_at(&self, index: u32) -> ParamsRequest {
+        self.params_request(start_at_str(index))
     }
 
-    pub fn endAt(&self, index: u32) -> ParamsRequest {
-        self.params_request(endAtStr(index))
+    pub fn end_at(&self, index: u32) -> ParamsRequest {
+        self.params_request(end_at_str(index))
     }
 
-    pub fn equalTo(&self, value: u32) -> ParamsRequest {
-        self.params_request(equalToStr(value))
+    pub fn equal_to(&self, value: u32) -> ParamsRequest {
+        self.params_request(equal_to_str(value))
     }
 
     pub fn shallow(&self, flag: bool) -> ParamsRequest {
-        self.params_request(shallowStr(flag))
+        self.params_request(shallow_str(flag))
     }
 
     fn params_request(&self, param: String) -> ParamsRequest {
@@ -146,38 +146,38 @@ pub struct ParamsRequest<'l> {
 }
 
 impl<'l> ParamsRequest<'l> {
-    pub fn orderBy(&mut self, key: &str) -> &Self {
-        self.params.push(orderByStr(key));
+    pub fn order_by(&mut self, key: &str) -> &Self {
+        self.params.push(order_by_str(key));
         self
     }
 
-    pub fn limitToFirst(&mut self, count: u32) -> &Self {
-        self.params.push(limitToFirstStr(count));
+    pub fn limit_to_first(&mut self, count: u32) -> &Self {
+        self.params.push(limit_to_first_str(count));
         self
     }
 
-    pub fn limitToLast(&mut self, count: u32) -> &Self {
-        self.params.push(limitToLastStr(count));
+    pub fn limit_to_last(&mut self, count: u32) -> &Self {
+        self.params.push(limit_to_last_str(count));
         self
     }
 
-    pub fn startAt(&mut self, index: u32) -> &Self {
-        self.params.push(startAtStr(index));
+    pub fn start_at(&mut self, index: u32) -> &Self {
+        self.params.push(start_at_str(index));
         self
     }
 
-    pub fn endAt(&mut self, index: u32) -> &Self {
-        self.params.push(endAtStr(index));
+    pub fn end_at(&mut self, index: u32) -> &Self {
+        self.params.push(end_at_str(index));
         self
     }
 
-    pub fn equalTo(&mut self, value: u32) -> &Self {
-        self.params.push(equalToStr(value));
+    pub fn equal_to(&mut self, value: u32) -> &Self {
+        self.params.push(equal_to_str(value));
         self
     }
 
     pub fn shallow(&mut self, flag: bool) -> &Self {
-        self.params.push(shallowStr(flag));
+        self.params.push(shallow_str(flag));
         self
     }
 
@@ -186,31 +186,31 @@ impl<'l> ParamsRequest<'l> {
     }
 }
 
-fn orderByStr(key: &str) -> String {
-    format!("orderBy={}", key)
+fn order_by_str(key: &str) -> String {
+    format!("order_by={}", key)
 }
 
-fn limitToFirstStr(count: u32) -> String {
-    format!("limitToFirst={}", count)
+fn limit_to_first_str(count: u32) -> String {
+    format!("limit_to_first={}", count)
 }
 
-fn limitToLastStr(count: u32) -> String {
-    format!("limitToLast={}", count)
+fn limit_to_last_str(count: u32) -> String {
+    format!("limit_to_last={}", count)
 }
 
-fn startAtStr(index: u32) -> String {
-    format!("startAt={}", index)
+fn start_at_str(index: u32) -> String {
+    format!("start_at={}", index)
 }
 
-fn endAtStr(index: u32) -> String {
-    format!("endAt={}", index)
+fn end_at_str(index: u32) -> String {
+    format!("end_at={}", index)
 }
 
-fn equalToStr(value: u32) -> String {
-    format!("equalTo={}", value)
+fn equal_to_str(value: u32) -> String {
+    format!("equal_to={}", value)
 }
 
-fn shallowStr(flag: bool) -> String {
+fn shallow_str(flag: bool) -> String {
     format!("shallow={}", flag)
 }
 
