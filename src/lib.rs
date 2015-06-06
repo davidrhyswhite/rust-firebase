@@ -80,10 +80,10 @@ impl Firebase {
             Err(..) => "Unable to parse"
         };
 
-        return Response {
+        Response {
             body: body.to_string(),
             code: res.get_code(),
-        };
+        }
     }
 }
 
