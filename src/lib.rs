@@ -77,7 +77,7 @@ impl Firebase {
 
         let body = match str::from_utf8(res.get_body()) {
             Ok(b) => b,
-            Err(..) => "Unable to parse"
+            Err(_) => "Unable to parse"
         };
 
         Response {
@@ -85,6 +85,16 @@ impl Firebase {
             code: res.get_code(),
         }
     }
+}
+
+pub enum Params<'l> {
+    OrderBy(&'l str),
+    LimitToFirst(u32),
+    LimitToLast(u32),
+    StartAt(u32),
+    EndAt(u32),
+    EqualTo(u32),
+    Shallow(bool),
 }
 
 enum Method {
@@ -102,9 +112,6 @@ pub struct Response {
 
 impl Response {
     pub fn is_success(&self) -> bool {
-        if self.code < 400 {
-            return true;
-        }
-        return false;
+        self.code < 400
     }
 }
