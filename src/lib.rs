@@ -3,20 +3,42 @@ extern crate curl;
 use std::str;
 use curl::http;
 
+mod util;
+
 pub struct Firebase {
     base_uri: String,
 }
 
 impl Firebase {
-    pub fn new(base_uri: &str) -> Firebase {
+    pub fn new(base_uri: &str) -> Self {
         Firebase {
             base_uri: base_uri.to_string(),
         }
     }
 
-    pub fn at(&self, path: &str) -> Firebase {
+    pub fn authenticated(base_uri: &str, auth_token: &str) -> Self {
+        let uri = util::trim_right(base_uri, "/");
         Firebase {
-            base_uri: self.base_uri.clone() + path,
+            base_uri: format!("{}&auth={}", uri, auth_token)
+        }
+    }
+
+    pub fn at(&self, path: &str) -> Self {
+        let mut components = self.base_uri.split('&');
+
+        let base = components.next().unwrap();
+        let base = util::trim_right(base, ".json");
+        let path = util::add_right(path, ".json");
+        let url  = util::join(base, &path, "/");
+
+        let url = if let Some(args) = components.next() {
+            url + "&" + args
+        } else {
+            url
+        };
+
+        Firebase {
+            base_uri: url
         }
     }
 
