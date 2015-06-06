@@ -146,37 +146,37 @@ pub struct ParamsRequest<'l> {
 }
 
 impl<'l> ParamsRequest<'l> {
-    pub fn order_by(&mut self, key: &str) -> &Self {
+    pub fn order_by(mut self, key: &str) -> Self {
         self.params.push(order_by_str(key));
         self
     }
 
-    pub fn limit_to_first(&mut self, count: u32) -> &Self {
+    pub fn limit_to_first(mut self, count: u32) -> Self {
         self.params.push(limit_to_first_str(count));
         self
     }
 
-    pub fn limit_to_last(&mut self, count: u32) -> &Self {
+    pub fn limit_to_last(mut self, count: u32) -> Self {
         self.params.push(limit_to_last_str(count));
         self
     }
 
-    pub fn start_at(&mut self, index: u32) -> &Self {
+    pub fn start_at(mut self, index: u32) -> Self {
         self.params.push(start_at_str(index));
         self
     }
 
-    pub fn end_at(&mut self, index: u32) -> &Self {
+    pub fn end_at(mut self, index: u32) -> Self {
         self.params.push(end_at_str(index));
         self
     }
 
-    pub fn equal_to(&mut self, value: u32) -> &Self {
+    pub fn equal_to(mut self, value: u32) -> Self {
         self.params.push(equal_to_str(value));
         self
     }
 
-    pub fn shallow(&mut self, flag: bool) -> &Self {
+    pub fn shallow(mut self, flag: bool) -> Self {
         self.params.push(shallow_str(flag));
         self
     }
@@ -184,30 +184,34 @@ impl<'l> ParamsRequest<'l> {
     pub fn get(&self) -> Response {
         Firebase::get_params(self.firebase, self.params.connect("&"))
     }
+
+    pub fn get_args_str(&self) -> String {
+        self.params.connect("&")
+    }
 }
 
 fn order_by_str(key: &str) -> String {
-    format!("order_by={}", key)
+    format!("orderBy={}", key)
 }
 
 fn limit_to_first_str(count: u32) -> String {
-    format!("limit_to_first={}", count)
+    format!("limitToFirst={}", count)
 }
 
 fn limit_to_last_str(count: u32) -> String {
-    format!("limit_to_last={}", count)
+    format!("limitToLast={}", count)
 }
 
 fn start_at_str(index: u32) -> String {
-    format!("start_at={}", index)
+    format!("startAt={}", index)
 }
 
 fn end_at_str(index: u32) -> String {
-    format!("end_at={}", index)
+    format!("endAt={}", index)
 }
 
 fn equal_to_str(value: u32) -> String {
-    format!("equal_to={}", value)
+    format!("equalTo={}", value)
 }
 
 fn shallow_str(flag: bool) -> String {

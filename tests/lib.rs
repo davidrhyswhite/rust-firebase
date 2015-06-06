@@ -51,3 +51,12 @@ fn handle_json_suffix() {
     let url_now = "http://db.rifebass.com/0/1/1/8/9/9/9/8/8/1/9/9/9/1/1/9/7/2/5/3.json";
     assert_eq!(url_now, f.get_url());
 }
+
+#[test]
+fn test_ops() {
+    let f = Firebase::new("db.fe/").at("lol");
+    let req = f.order_by("pts").limit_to_last(5).start_at(8).end_at(13)
+               .limit_to_first(4).equal_to(8).shallow(false);
+    let a = "orderBy=pts&limitToLast=5&startAt=8&endAt=13&limitToFirst=4&equalTo=8&shallow=false";
+    assert_eq!(a, req.get_args_str());
+}
