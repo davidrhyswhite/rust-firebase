@@ -19,20 +19,21 @@ impl Firebase {
     pub fn authenticated(base_uri: &str, auth_token: &str) -> Self {
         let uri = util::trim_right(base_uri, "/");
         Firebase {
-            base_uri: format!("{}&auth={}", uri, auth_token)
+            base_uri: format!("{}?auth={}", uri, auth_token)
         }
     }
 
     pub fn at(&self, path: &str) -> Self {
-        let mut components = self.base_uri.split('&');
+        let mut components = self.base_uri.split('?');
 
         let base = components.next().unwrap();
         let base = util::trim_right(base, ".json");
+        let path = util::trim_right(path, "/");
         let path = util::add_right(path, ".json");
         let url  = util::join(base, &path, "/");
 
         let url = if let Some(args) = components.next() {
-            url + "&" + args
+            url + "?" + args
         } else {
             url
         };
@@ -84,6 +85,10 @@ impl Firebase {
             body: body.to_string(),
             code: res.get_code(),
         }
+    }
+
+    pub fn get_url(&self) -> &str {
+        return &self.base_uri;
     }
 }
 
