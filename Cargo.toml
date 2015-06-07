@@ -8,6 +8,7 @@ repository = "https://github.com/davidrhyswhite/rust-firebase"
 license = "MIT"
 authors = ["David White <david.white@spry-soft.com>", "Michael Eden <themichaeleden@gmail.com>"]
 exclude = ["examples/*", "tests/*"]
+keywords = ["firebase", "rest", "api"]
 
 [dependencies.curl]
 git  = "https://github.com/davidrhyswhite/curl-rust.git"
