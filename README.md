@@ -85,7 +85,7 @@ let response = episode.remove();
 
 ```Rust
 let episodes = firebase.at("/shows/futurama/episodes");
-let top5 = episodes.sort_by("imdb").limit_to_first(5).get();
+let top5 = episodes.order_by("\"imdb\"").limit_to_first(5).get();
 ```
 
 The full list of supported parameters are listed here:
