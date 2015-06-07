@@ -4,13 +4,13 @@ use firebase::Firebase;
 
 #[test]
 fn builds_auth_url() {
-    let f = Firebase::authenticated("http://db.rifebass.com/", "deadbeaf");
+    let f = Firebase::authed("http://db.rifebass.com/", "deadbeaf");
     assert_eq!(f.get_url(), "http://db.rifebass.com?auth=deadbeaf");
 }
 
 #[test]
 fn extends_auth_url() {
-    let f = Firebase::authenticated("http://db.rifebass.com/", "deadbeaf");
+    let f = Firebase::authed("http://db.rifebass.com/", "deadbeaf");
     let f = f.at("/futurama/SpacePilot3000");
     let url_now = "http://db.rifebass.com/futurama/SpacePilot3000.json?auth=deadbeaf";
     assert_eq!(url_now, f.get_url());
@@ -18,7 +18,7 @@ fn extends_auth_url() {
 
 #[test]
 fn double_extends_url() {
-    let f = Firebase::authenticated("http://db.rifebass.com/", "deadbeaf");
+    let f = Firebase::authed("http://db.rifebass.com/", "deadbeaf");
     let f = f.at("/futurama.json");
     let f = f.at("SpacePilot3000");
     let url_now = "http://db.rifebass.com/futurama/SpacePilot3000.json?auth=deadbeaf";
@@ -27,13 +27,13 @@ fn double_extends_url() {
 
 #[test]
 fn handle_slashes() {
-    let f = Firebase::authenticated("http://db.rifebass.com", "deadbeaf");
+    let f = Firebase::authed("http://db.rifebass.com", "deadbeaf");
     let f = f.at("futurama.json");
     let f = f.at("SpacePilot3000.json");
     let url_now = "http://db.rifebass.com/futurama/SpacePilot3000.json?auth=deadbeaf";
     assert_eq!(url_now, f.get_url());
 
-    let f = Firebase::authenticated("http://db.rifebass.com/", "deadbeaf");
+    let f = Firebase::authed("http://db.rifebass.com/", "deadbeaf");
     let f = f.at("/futurama/");
     let f = f.at("/SpacePilot3000/");
     let url_now = "http://db.rifebass.com/futurama/SpacePilot3000.json?auth=deadbeaf";
@@ -55,8 +55,15 @@ fn handle_json_suffix() {
 #[test]
 fn test_ops() {
     let f = Firebase::new("db.fe/").at("lol");
-    let req = f.order_by("pts").limit_to_last(5).start_at(8).end_at(13)
-               .limit_to_first(4).equal_to(8).shallow(false);
-    let a = "orderBy=pts&limitToLast=5&startAt=8&endAt=13&limitToFirst=4&equalTo=8&shallow=false";
-    assert_eq!(a, req.get_args_str());
+    let req = f.end_at(13).limit_to_first(4).equal_to(8).shallow(false);
+    let a = "db.fe/lol.json?endAt=13&limitToFirst=4&equalTo=8&shallow=false";
+    assert_eq!(a, req.get_url());
+}
+
+#[test]
+fn test_auth_ops() {
+    let f = Firebase::authed("db.fe/", "key").at("lol");
+    let req = f.order_by("pts").limit_to_last(5).start_at(8);
+    let a = "db.fe/lol.json?auth=key&orderBy=pts&limitToLast=5&startAt=8";
+    assert_eq!(a, req.get_url());
 }

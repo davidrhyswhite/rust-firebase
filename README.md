@@ -23,7 +23,7 @@ let firebase = Firebase::new("https://<your-firebase>.firebaseio.com");
 Or you can create an authenticated connection by supplying your [auth](https://www.firebase.com/docs/rest/guide/user-auth.html) token:
 
 ```Rust
-let firebase = Firebase::authenticated("https://<your-firebase>.firebaseio.com", "<token>");
+let firebase = Firebase::authed("https://<your-firebase>.firebaseio.com", "<token>");
 ```
 
 ## Walking the database
@@ -78,7 +78,7 @@ let response = description.update("the penultimate episode");
 
 ```Rust
 let episode = firebase.at("/shows/futurama/s10/meanwhile");
-let response = episode.delete();
+let response = episode.remove();
 ```
 
 ## Requests with parameters

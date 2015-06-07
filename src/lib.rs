@@ -16,7 +16,7 @@ impl Firebase {
         }
     }
 
-    pub fn authenticated(base_uri: &str, auth_token: &str) -> Self {
+    pub fn authed(base_uri: &str, auth_token: &str) -> Self {
         let uri = util::trim_right(base_uri, "/");
         Firebase {
             base_uri: format!("{}?auth={}", uri, auth_token),
@@ -47,16 +47,6 @@ impl Firebase {
         self.request(Method::GET, None)
     }
 
-    fn get_params(&self, params: String) -> Response {
-        let url = if self.base_uri.find("?").is_some() {
-            format!("{}&{}", &self.base_uri, params)
-        } else {
-            format!("{}?{}", &self.base_uri, params)
-        };
-
-        Firebase::request_url(&url, Method::GET, None)
-    }
-
     pub fn set(&self, data: &str) -> Response {
         self.request(Method::PUT, Some(data))
     }
@@ -69,7 +59,7 @@ impl Firebase {
         self.request(Method::PATCH, Some(data))
     }
 
-    pub fn delete(&self) -> Response {
+    pub fn remove(&self) -> Response {
         self.request(Method::DELETE, None)
     }
 
@@ -182,11 +172,17 @@ impl<'l> ParamsRequest<'l> {
     }
 
     pub fn get(&self) -> Response {
-        Firebase::get_params(self.firebase, self.params.connect("&"))
+        Firebase::request_url(&self.get_url(), Method::GET, None)
     }
 
-    pub fn get_args_str(&self) -> String {
-        self.params.connect("&")
+    pub fn get_url(&self) -> String {
+        let params = self.params.connect("&");
+
+        if self.firebase.base_uri.find("?").is_some() {
+            format!("{}&{}", &self.firebase.base_uri, params)
+        } else {
+            format!("{}?{}", &self.firebase.base_uri, params)
+        }
     }
 }
 
