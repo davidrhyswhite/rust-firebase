@@ -12,7 +12,7 @@ fn main() {
     println!("Response code: {:?}", res.code);
     println!("Response success: {:?}", res.is_success());
 
-    let res = david.delete();
+    let res = david.remove();
 
     println!("Response body: {:?}", res.body);
     println!("Response code: {:?}", res.code);
