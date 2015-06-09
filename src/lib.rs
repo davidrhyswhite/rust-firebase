@@ -2,12 +2,16 @@ extern crate curl;
 
 use std::str;
 use std::error::Error;
-// use std::thread;
-// use std::sync::Arc;
+use std::thread;
+use std::thread::JoinHandle;
+use std::sync::Arc;
 use curl::http;
 
 mod util;
 
+pub type FbResult = Result<Response, Box<Error>>;
+
+#[derive(Clone)]
 pub struct Firebase {
     base_uri: String,
 }
@@ -46,39 +50,56 @@ impl Firebase {
         }
     }
 
-    pub fn get(&self) -> Result<Response, Box<Error>> {
+    pub fn get(&self) -> FbResult {
         self.request(Method::GET, None)
     }
 
-    // pub fn get_async<F>(&self, done: &F) where F: Fn(Result<Response, Box<Error>>) {
-    //     let callback = Arc::new(done).clone();
-    //
-    //     thread::spawn(move || {
-    //         callback(self.get());
-    //     });
-    // }
+    pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
+            where F: Fn(FbResult) + Send + Sync + 'static {
+        self.request_async(Method::GET, None, callback)
+    }
 
-    pub fn set(&self, data: &str) -> Result<Response, Box<Error>> {
+    pub fn set(&self, data: &str) -> FbResult {
         self.request(Method::PUT, Some(data))
     }
 
-    pub fn push(&self, data: &str) -> Result<Response, Box<Error>> {
+    pub fn set_async<F>(&self, data: &str, callback: F) -> JoinHandle<()>
+            where F: Fn(FbResult) + Send + Sync + 'static {
+        self.request_async(Method::PUT, Some(data), callback)
+    }
+
+    pub fn push(&self, data: &str) -> FbResult {
         self.request(Method::POST, Some(data))
     }
 
-    pub fn update(&self, data: &str) -> Result<Response, Box<Error>> {
+    pub fn push_async<F>(&self, data: &str, callback: F) -> JoinHandle<()>
+            where F: Fn(FbResult) + Send + Sync + 'static {
+        self.request_async(Method::POST, Some(data), callback)
+    }
+
+    pub fn update(&self, data: &str) -> FbResult {
         self.request(Method::PATCH, Some(data))
     }
 
-    pub fn remove(&self) -> Result<Response, Box<Error>> {
+    pub fn update_async<F>(&self, data: &str, callback: F) -> JoinHandle<()>
+            where F: Fn(FbResult) + Send + Sync + 'static {
+        self.request_async(Method::PATCH, Some(data), callback)
+    }
+
+    pub fn remove(&self) -> FbResult {
         self.request(Method::DELETE, None)
     }
 
-    fn request(&self, method: Method, data: Option<&str>) -> Result<Response, Box<Error>> {
+    pub fn remove_async<F>(&self, callback: F) -> JoinHandle<()>
+            where F: Fn(FbResult) + Send + Sync + 'static {
+        self.request_async(Method::DELETE, None, callback)
+    }
+
+    fn request(&self, method: Method, data: Option<&str>) -> FbResult {
         Firebase::request_url(&self.base_uri, method, data)
     }
 
-    fn request_url(url: &str, method: Method, data: Option<&str>) -> Result<Response, Box<Error>> {
+    fn request_url(url: &str, method: Method, data: Option<&str>) -> FbResult {
         let mut handler = http::handle();
 
         let req = match method {
@@ -96,6 +117,23 @@ impl Firebase {
             body: body.to_string(),
             code: res.get_code(),
         })
+    }
+
+    fn request_async<F>(&self, method: Method, data: Option<&str>, callback: F) -> JoinHandle<()>
+            where F: Fn(FbResult) + Send + Sync + 'static {
+        let done = Arc::new(callback).clone();
+        let me   = Arc::new(self.clone());
+
+        if let Some(d) = data {
+            let data = Arc::new(d.to_string()).clone();
+            thread::spawn(move || {
+                done(me.request(method, Some(&*data)));
+            })
+        } else {
+            thread::spawn(move || {
+                done(me.request(method, None));
+            })
+        }
     }
 
     pub fn get_url(&self) -> &str {
@@ -179,9 +217,11 @@ impl<'l> ParamsRequest<'l> {
         self
     }
 
-    pub fn get(&self) -> Result<Response, Box<Error>> {
+    pub fn get(&self) -> FbResult {
         Firebase::request_url(&self.get_url(), Method::GET, None)
     }
+
+    // TODO: Make async call here. Need to restructure.
 
     pub fn get_url(&self) -> String {
         let params = self.params.connect("&");
