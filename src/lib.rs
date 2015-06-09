@@ -1,6 +1,9 @@
 extern crate curl;
 
 use std::str;
+use std::error::Error;
+// use std::thread;
+// use std::sync::Arc;
 use curl::http;
 
 mod util;
@@ -43,31 +46,39 @@ impl Firebase {
         }
     }
 
-    pub fn get(&self) -> Response {
+    pub fn get(&self) -> Result<Response, Box<Error>> {
         self.request(Method::GET, None)
     }
 
-    pub fn set(&self, data: &str) -> Response {
+    // pub fn get_async<F>(&self, done: &F) where F: Fn(Result<Response, Box<Error>>) {
+    //     let callback = Arc::new(done).clone();
+    //
+    //     thread::spawn(move || {
+    //         callback(self.get());
+    //     });
+    // }
+
+    pub fn set(&self, data: &str) -> Result<Response, Box<Error>> {
         self.request(Method::PUT, Some(data))
     }
 
-    pub fn push(&self, data: &str) -> Response {
+    pub fn push(&self, data: &str) -> Result<Response, Box<Error>> {
         self.request(Method::POST, Some(data))
     }
 
-    pub fn update(&self, data: &str) -> Response {
+    pub fn update(&self, data: &str) -> Result<Response, Box<Error>> {
         self.request(Method::PATCH, Some(data))
     }
 
-    pub fn remove(&self) -> Response {
+    pub fn remove(&self) -> Result<Response, Box<Error>> {
         self.request(Method::DELETE, None)
     }
 
-    fn request(&self, method: Method, data: Option<&str>) -> Response {
+    fn request(&self, method: Method, data: Option<&str>) -> Result<Response, Box<Error>> {
         Firebase::request_url(&self.base_uri, method, data)
     }
 
-    fn request_url(url: &str, method: Method, data: Option<&str>) -> Response {
+    fn request_url(url: &str, method: Method, data: Option<&str>) -> Result<Response, Box<Error>> {
         let mut handler = http::handle();
 
         let req = match method {
@@ -77,17 +88,14 @@ impl Firebase {
             Method::PATCH   => handler.patch(url, data.unwrap()),
             Method::DELETE  => handler.delete(url)
         };
-        let res = req.exec().unwrap();
+        let res = try!(req.exec());
 
-        let body = match str::from_utf8(res.get_body()) {
-            Ok(b) => b,
-            Err(_) => "Unable to parse"
-        };
+        let body = try!(str::from_utf8(res.get_body()));
 
-        Response {
+        Ok(Response {
             body: body.to_string(),
             code: res.get_code(),
-        }
+        })
     }
 
     pub fn get_url(&self) -> &str {
@@ -171,7 +179,7 @@ impl<'l> ParamsRequest<'l> {
         self
     }
 
-    pub fn get(&self) -> Response {
+    pub fn get(&self) -> Result<Response, Box<Error>> {
         Firebase::request_url(&self.get_url(), Method::GET, None)
     }
 

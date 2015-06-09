@@ -12,3 +12,4 @@ keywords = ["firebase", "rest", "api"]
 
 [dependencies]
 curl = "0.2.10"
+url  = "0.2.35"
