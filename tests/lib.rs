@@ -67,8 +67,3 @@ fn test_auth_ops() {
     let a = "db.fe/lol.json?auth=key&orderBy=pts&limitToLast=5&startAt=8";
     assert_eq!(a, req.get_url());
 }
-
-#[test]
-fn test_encoding() {
-    // TODO
-}
