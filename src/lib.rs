@@ -4,14 +4,9 @@ extern crate url;
 use std::str;
 use std::error::Error;
 use std::collections::HashMap;
-use std::thread;
-use std::thread::JoinHandle;
-use std::sync::Arc;
 
 use curl::http;
 use url::{Url, ParseError};
-
-mod util;
 
 pub type FbResult = Result<Response, Box<Error>>;
 
@@ -43,20 +38,23 @@ impl Firebase {
         })
     }
 
-    /*
-     TODO: Concat path and current url
-     */
     pub fn at(&self, path: &str) -> Result<Self, ParseError> {
-        // let extra = try!( Url::parse(path) );
-        // let mut new_url = self.url.clone();
-        //
-        // // DR. HORRIBLE
-        // for component in extra.path().unwrap().iter() {
-        //     new_url.path_mut().unwrap().push(component.clone());
-        // }
-        // panic!();
+        let next = try!( Url::parse(path) );
+        let mut new_url = self.url.clone();
+
+        /*
+        TODO: Optomize, remove trailing .json
+        */
+        if let Some(url_path) = new_url.path_mut() {
+            if let Some(paths) = next.path() {
+                for component in paths.into_iter() {
+                    url_path.push(component.clone());
+                }
+            }
+        }
+
         Ok(Firebase {
-            url: self.url.clone(),
+            url: new_url,
         })
     }
 
@@ -149,92 +147,98 @@ impl Firebase {
 #[derive(Clone)]
 pub struct FirebaseParams {
     url: Url,
+    params: HashMap<&'static str, String>,
 }
 
 impl FirebaseParams {
-    pub fn order_by(&self, key: &str) -> Self {
+    pub fn order_by(self, key: &str) -> Self {
         self.add_param(ORDER_BY, key)
     }
 
-    pub fn limit_to_first(&self, count: u32) -> Self {
+    pub fn limit_to_first(self, count: u32) -> Self {
         self.add_param(LIMIT_TO_FIRST, count)
     }
 
-    pub fn limit_to_last(&self, count: u32) -> Self {
+    pub fn limit_to_last(self, count: u32) -> Self {
         self.add_param(LIMIT_TO_LAST, count)
     }
 
-    pub fn start_at(&self, index: u32) -> Self {
+    pub fn start_at(self, index: u32) -> Self {
         self.add_param(START_AT, index)
     }
 
-    pub fn end_at(&self, index: u32) -> Self {
+    pub fn end_at(self, index: u32) -> Self {
         self.add_param(END_AT, index)
     }
 
-    pub fn equal_to(&self, value: u32) -> Self {
+    pub fn equal_to(self, value: u32) -> Self {
         self.add_param(EQUAL_TO, value)
     }
 
-    pub fn shallow(&self, flag: bool) -> Self {
+    pub fn shallow(self, flag: bool) -> Self {
         self.add_param(SHALLOW, flag)
     }
 
-    pub fn format(&self) -> Self {
+    pub fn format(self) -> Self {
         self.add_param(FORMAT, EXPORT)
     }
 
-    fn add_param<T: ToString>(&self, key: &'static str, value: T) -> Self {
-        /*
-        TODO: add key/val pairs
-        */
-        self.clone()
+    fn add_param<T: ToString>(mut self, key: &'static str, value: T) -> Self {
+        self.params.insert(key, value.to_string());
+        {
+            let mapped = self.params.iter().map(|(&k, v)| (k, v as &str));
+            let params: HashMap<&str, &str> = mapped.collect();
+            self.url.set_query_from_pairs(params.into_iter());
+        }
+        self
     }
 
     fn new<T: ToString>(url: &Url, key: &'static str, value: T) -> Self {
-        /*
-         TODO: Set the key/val pairs.
-         */
-        FirebaseParams {
+        let me = FirebaseParams {
             url: url.clone(),
-        }
+            params: HashMap::new(),
+        };
+        me.add_param(key, value)
     }
 
     fn from_ops(url: &Url, opts: &FbOps) -> Self {
-        let mut params: Vec<(&str, String)> = Vec::new();
         let mut url = url.clone();
+        let mut params = HashMap::new();
 
         if let Some(order) = opts.order_by {
-            params.push((ORDER_BY, order.to_string()));
+            params.insert(ORDER_BY, order.to_string());
         }
         if let Some(first) = opts.limit_to_first {
-            params.push((LIMIT_TO_FIRST, first.to_string()));
+            params.insert(LIMIT_TO_FIRST, first.to_string());
         }
         if let Some(last) = opts.limit_to_last {
-            params.push((LIMIT_TO_LAST, last.to_string()));
+            params.insert(LIMIT_TO_LAST, last.to_string());
         }
         if let Some(start) = opts.start_at {
-            params.push((START_AT, start.to_string()));
+            params.insert(START_AT, start.to_string());
         }
         if let Some(end) = opts.end_at {
-            params.push((END_AT, end.to_string()));
+            params.insert(END_AT, end.to_string());
         }
         if let Some(equal) = opts.equal_to {
-            params.push((EQUAL_TO, equal.to_string()));
+            params.insert(EQUAL_TO, equal.to_string());
         }
         if let Some(shallow) = opts.shallow {
-            params.push((SHALLOW, shallow.to_string()));
+            params.insert(SHALLOW, shallow.to_string());
         }
         if let Some(format) = opts.format {
             if format {
-                params.push((FORMAT, EXPORT.to_string()));
+                params.insert(FORMAT, EXPORT.to_string());
             }
         }
-        let iter = params.into_iter().map(|(k, v)| (k, &v));
-        url.set_query_from_pairs(iter);
-
+        {
+            let mapped = params.iter().map(|(&k, v)| (k, v as &str));
+            let pairs: HashMap<&str, &str> = mapped.collect();
+            url.set_query_from_pairs(pairs.into_iter());
+        }
         FirebaseParams {
             url: url,
+            params: params,
         }
     }
 
@@ -272,7 +276,7 @@ pub struct FbOps<'l> {
     format:         Option<bool>,
 }
 
-const DEFAULT: FbOps<'static> = FbOps {
+pub const DEFAULT: FbOps<'static> = FbOps {
     order_by:       None,
     limit_to_first: None,
     limit_to_last:  None,
