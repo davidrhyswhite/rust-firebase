@@ -3,9 +3,9 @@ extern crate firebase;
 use firebase::Firebase;
 
 fn main() {
-    let firebase = Firebase::new("https://shining-torch-7752.firebaseio.com");
-    let messages = firebase.at("/api/messages");
-    let res = messages.get().unwrap();
+    let firebase = Firebase::new("https://shining-torch-7752.firebaseio.com").ok().unwrap();
+    let messages = firebase.at("/api/messages").ok().unwrap();
+    let res = messages.get().ok().unwrap();
 
     println!("Response body: {:?}", res.body);
     println!("Response code: {:?}", res.code);

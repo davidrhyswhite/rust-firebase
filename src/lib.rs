@@ -1,14 +1,13 @@
 extern crate curl;
 extern crate url;
 
+mod util;
+
 use std::str;
-use std::error::Error;
 use std::collections::HashMap;
 
 use curl::http;
-use url::{Url, ParseError};
-
-pub type FbResult = Result<Response, Box<Error>>;
+use url::Url;
 
 #[derive(Clone)]
 pub struct Firebase {
@@ -17,19 +16,27 @@ pub struct Firebase {
 
 impl Firebase {
     pub fn new(url: &str) -> Result<Self, ParseError> {
+        let url = try!( parse(url) );
+        try!( unwrap_path(&url) );
+
         Ok(Firebase {
-            url: try!( Url::parse(url) ),
+            url: url,
         })
     }
 
-    pub fn from_url(url: &Url) -> Self {
-        Firebase {
-            url: url.clone(),
-        }
+    pub fn from_url(url: &Url) -> Result<Self, ParseError> {
+        let url = url.clone();
+        try!( unwrap_path(&url) );
+
+        Ok(Firebase {
+            url: url,
+        })
     }
 
     pub fn authed(url: &str, auth_token: &str) -> Result<Self, ParseError> {
-        let mut url = try!( Url::parse(url) );
+        let mut url = try!( parse(url) );
+        try!( unwrap_path(&url) );
+
         let opts = vec![ ("auth", auth_token) ];
         url.set_query_from_pairs(opts.into_iter());
 
@@ -38,23 +45,29 @@ impl Firebase {
         })
     }
 
-    pub fn at(&self, path: &str) -> Result<Self, ParseError> {
-        let next = try!( Url::parse(path) );
-        let mut new_url = self.url.clone();
+    pub fn at(&self, add_path: &str) -> Result<Self, ParseError> {
+        let mut url = self.url.clone();
 
-        /*
-        TODO: Optomize, remove trailing .json
-        */
-        if let Some(url_path) = new_url.path_mut() {
-            if let Some(paths) = next.path() {
-                for component in paths.into_iter() {
-                    url_path.push(component.clone());
-                }
+        { // Add path to original path, already checked for path.
+            let mut path = url.path_mut().unwrap();
+            // Remove .json from the old path's end.
+            if let Some(end) = path.pop() {
+                let new_end = util::trim_right(&end, ".json").to_string();
+                path.push(new_end);
+            }
+            let add_path = util::trim_right(add_path, "/");
+            let add_path = util::add_right(add_path, ".json");
+            let add_path = try!( parse(&add_path) );
+            let components = try!( unwrap_path(&add_path) );
+
+            for component in components.into_iter() {
+                // TODO: Not clone maybe?
+                path.push(component.clone());
             }
         }
 
         Ok(Firebase {
-            url: new_url,
+            url: url,
         })
     }
 
@@ -66,23 +79,23 @@ impl Firebase {
         FirebaseParams::new(&self.url, key, value)
     }
 
-    pub fn get(&self) -> FbResult {
+    pub fn get(&self) -> Result<Response, ReqErr> {
         self.request(Method::GET, None)
     }
 
-    pub fn set(&self, data: &str) -> FbResult {
+    pub fn set(&self, data: &str) -> Result<Response, ReqErr> {
         self.request(Method::PUT, Some(data))
     }
 
-    pub fn push(&self, data: &str) -> FbResult {
+    pub fn push(&self, data: &str) -> Result<Response, ReqErr> {
         self.request(Method::POST, Some(data))
     }
 
-    pub fn update(&self, data: &str) -> FbResult {
+    pub fn update(&self, data: &str) -> Result<Response, ReqErr> {
         self.request(Method::PATCH, Some(data))
     }
 
-    pub fn remove(&self) -> FbResult {
+    pub fn remove(&self) -> Result<Response, ReqErr> {
         self.request(Method::DELETE, None)
     }
 
@@ -118,12 +131,16 @@ impl Firebase {
         self.with_params(FORMAT, EXPORT)
     }
 
+    pub fn get_url(&self) -> String {
+        self.url.serialize()
+    }
+
     #[inline]
-    fn request(&self, method: Method, data: Option<&str>) -> FbResult {
+    fn request(&self, method: Method, data: Option<&str>) -> Result<Response, ReqErr> {
         Firebase::request_url(&self.url, method, data)
     }
 
-    fn request_url(url: &Url, method: Method, data: Option<&str>) -> FbResult {
+    fn request_url(url: &Url, method: Method, data: Option<&str>) -> Result<Response, ReqErr> {
         let mut handler = http::handle();
 
         let req = match method {
@@ -133,9 +150,16 @@ impl Firebase {
             Method::PATCH   => handler.patch( url, data.unwrap()),
             Method::DELETE  => handler.delete(url),
         };
-        let res = try!(req.exec());
 
-        let body = try!(str::from_utf8(res.get_body()));
+        let res = match req.exec() {
+            Ok(r)  => r,
+            Err(e) => return Err(ReqErr::NetworkErr(e)),
+        };
+
+        let body = match str::from_utf8(res.get_body()) {
+            Ok(b)  => b,
+            Err(e) => return Err(ReqErr::RespNotUTF8(e)),
+        };
 
         Ok(Response {
             body: body.to_string(),
@@ -183,14 +207,19 @@ impl FirebaseParams {
         self.add_param(FORMAT, EXPORT)
     }
 
+    pub fn get_url(&self) -> String {
+        self.url.serialize()
+    }
+
     fn add_param<T: ToString>(mut self, key: &'static str, value: T) -> Self {
-        self.params.insert(key, value.to_string());
-        {
-            let mapped = self.params.iter().map(|(&k, v)| (k, v as &str));
-            let params: HashMap<&str, &str> = mapped.collect();
-            self.url.set_query_from_pairs(params.into_iter());
-        }
+        let value = value.to_string();
+        self.params.insert(key, value);
+        self.set_params();
         self
+    }
+
+    fn set_params(&mut self) {
+        self.url.set_query_from_pairs(self.params.iter().map(|(&k, v)| (k, v as &str)));
     }
 
     fn new<T: ToString>(url: &Url, key: &'static str, value: T) -> Self {
@@ -202,47 +231,42 @@ impl FirebaseParams {
     }
 
     fn from_ops(url: &Url, opts: &FbOps) -> Self {
-        let mut url = url.clone();
-        let mut params = HashMap::new();
-
+        let mut me = FirebaseParams {
+            url: url.clone(),
+            params: HashMap::new(),
+        };
         if let Some(order) = opts.order_by {
-            params.insert(ORDER_BY, order.to_string());
+            me.params.insert(ORDER_BY, order.to_string());
         }
         if let Some(first) = opts.limit_to_first {
-            params.insert(LIMIT_TO_FIRST, first.to_string());
+            me.params.insert(LIMIT_TO_FIRST, first.to_string());
         }
         if let Some(last) = opts.limit_to_last {
-            params.insert(LIMIT_TO_LAST, last.to_string());
+            me.params.insert(LIMIT_TO_LAST, last.to_string());
         }
         if let Some(start) = opts.start_at {
-            params.insert(START_AT, start.to_string());
+            me.params.insert(START_AT, start.to_string());
         }
         if let Some(end) = opts.end_at {
-            params.insert(END_AT, end.to_string());
+            me.params.insert(END_AT, end.to_string());
         }
         if let Some(equal) = opts.equal_to {
-            params.insert(EQUAL_TO, equal.to_string());
+            me.params.insert(EQUAL_TO, equal.to_string());
         }
         if let Some(shallow) = opts.shallow {
-            params.insert(SHALLOW, shallow.to_string());
+            me.params.insert(SHALLOW, shallow.to_string());
         }
         if let Some(format) = opts.format {
             if format {
-                params.insert(FORMAT, EXPORT.to_string());
+                me.params.insert(FORMAT, EXPORT.to_string());
             }
         }
-        {
-            let mapped = params.iter().map(|(&k, v)| (k, v as &str));
-            let pairs: HashMap<&str, &str> = mapped.collect();
-            url.set_query_from_pairs(pairs.into_iter());
-        }
-        FirebaseParams {
-            url: url,
-            params: params,
-        }
+        // Copy all of the params into the url.
+        me.set_params();
+        me
     }
 
-    pub fn get(&self) -> FbResult {
+    pub fn get(&self) -> Result<Response, ReqErr> {
         Firebase::request_url(&self.url, Method::GET, None)
     }
 }
@@ -287,6 +311,16 @@ pub const DEFAULT: FbOps<'static> = FbOps {
     format:         None,
 };
 
+pub enum ReqErr {
+    RespNotUTF8(str::Utf8Error),
+    NetworkErr(curl::ErrCode),
+}
+
+pub enum ParseError {
+    UrlHasNoPath,
+    Parser(url::ParseError),
+}
+
 pub struct Response {
     pub body: String,
     pub code: u32,
@@ -295,5 +329,19 @@ pub struct Response {
 impl Response {
     pub fn is_success(&self) -> bool {
         self.code < 400
+    }
+}
+
+fn parse(url: &str) -> Result<Url, ParseError> {
+    match Url::parse(&url) {
+        Ok(u)  => Ok(u),
+        Err(e) => Err(ParseError::Parser(e)),
+    }
+}
+
+fn unwrap_path(url: &Url) -> Result<&[String], ParseError> {
+    match url.path() {
+        None    => return Err(ParseError::UrlHasNoPath),
+        Some(p) => return Ok(p),
     }
 }
