@@ -79,8 +79,18 @@ fn test_ops() {
 
 #[test]
 fn test_auth_ops() {
-    let f = Firebase::authed("db.fe/", "key").ok().unwrap().at("lol").ok().unwrap();
+    let f = Firebase::authed("db.fe/", "key").ok().expect("url err").at("lol").ok().unwrap();
     let req = f.order_by("pts").limit_to_last(5).start_at(8);
-    let a = "db.fe/lol.json?auth=key&orderBy=pts&limitToLast=5&startAt=8";
-    assert_eq!(a, req.get_url());
+
+    let correct = Url::parse("https://db.fe/lol.json?auth=key&orderBy=pts&limitToLast=5&startAt=8").ok().unwrap();
+    let generated = Url::parse(&req.get_url()).ok().unwrap();
+
+    let corr_pairs = correct.query_pairs().unwrap();
+    let gen_pairs  = generated.query_pairs().unwrap();
+
+    assert_eq!(corr_pairs.len(), gen_pairs.len());
+
+    for pair in corr_pairs.iter() {
+        assert!(gen_pairs.contains(pair));
+    }
 }

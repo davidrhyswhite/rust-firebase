@@ -38,7 +38,7 @@ pub fn add_https(uri: &str) -> String {
     let o = other.len();
     let n = uri.len();
 
-    if n >= p && &uri[0..p] != protocol && &uri[0..o] != other {
+    if n < p || &uri[0..p] != protocol && &uri[0..o] != other {
         protocol.to_string() + uri
     } else {
         uri.to_string()

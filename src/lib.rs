@@ -35,7 +35,8 @@ impl Firebase {
     }
 
     pub fn authed(url: &str, auth_token: &str) -> Result<Self, ParseError> {
-        let mut url = try!( parse(url) );
+        let url = util::add_https(&url);
+        let mut url = try!( parse(&url) );
         try!( unwrap_path(&url) );
 
         let opts = vec![ ("auth", auth_token) ];
