@@ -39,7 +39,7 @@ impl Firebase {
         let mut url = try!( parse(&url) );
         try!( unwrap_path(&url) );
 
-        let opts = vec![ ("auth", auth_token) ];
+        let opts = vec![ (AUTH, auth_token) ];
         url.set_query_from_pairs(opts.into_iter());
 
         Ok(Firebase {
@@ -222,10 +222,23 @@ impl FirebaseParams {
         self.url.set_query_from_pairs(self.params.iter().map(|(&k, v)| (k, v as &str)));
     }
 
+    fn get_auth(url: &Url) -> HashMap<&'static str, String> {
+        let mut pair: HashMap<&'static str, String> = HashMap::new();
+
+        if let Some(queries) = url.query_pairs() {
+            for &(ref k, ref v) in queries.iter() {
+                if k == AUTH {
+                    pair.insert(AUTH, v.to_string());
+                }
+            }
+        }
+        pair
+    }
+
     fn new<T: ToString>(url: &Url, key: &'static str, value: T) -> Self {
         let me = FirebaseParams {
             url: url.clone(),
-            params: HashMap::new(),
+            params: FirebaseParams::get_auth(&url),
         };
         me.add_param(key, value)
     }
@@ -233,7 +246,7 @@ impl FirebaseParams {
     fn from_ops(url: &Url, opts: &FbOps) -> Self {
         let mut me = FirebaseParams {
             url: url.clone(),
-            params: HashMap::new(),
+            params: FirebaseParams::get_auth(&url),
         };
         if let Some(order) = opts.order_by {
             me.params.insert(ORDER_BY, order.to_string());
@@ -288,6 +301,7 @@ const EQUAL_TO:       &'static str = "equalTo";
 const SHALLOW:        &'static str = "shallow";
 const FORMAT:         &'static str = "format";
 const EXPORT:         &'static str = "export";
+const AUTH:           &'static str = "auth";
 
 pub struct FbOps<'l> {
     order_by:       Option<&'l str>,
