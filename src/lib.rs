@@ -16,7 +16,8 @@ pub struct Firebase {
 
 impl Firebase {
     pub fn new(url: &str) -> Result<Self, ParseError> {
-        let url = try!( parse(url) );
+        let url = util::add_https(&url);
+        let url = try!( parse(&url) );
         try!( unwrap_path(&url) );
 
         Ok(Firebase {
@@ -56,13 +57,11 @@ impl Firebase {
                 path.push(new_end);
             }
             let add_path = util::trim_right(add_path, "/");
+            let add_path = util::trim_left(add_path, "/");
             let add_path = util::add_right(add_path, ".json");
-            let add_path = try!( parse(&add_path) );
-            let components = try!( unwrap_path(&add_path) );
 
-            for component in components.into_iter() {
-                // TODO: Not clone maybe?
-                path.push(component.clone());
+            for component in add_path.split("/").into_iter() {
+                path.push(component.to_string());
             }
         }
 
