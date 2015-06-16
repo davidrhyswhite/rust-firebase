@@ -1,6 +1,8 @@
 extern crate firebase;
+extern crate url;
 
 use firebase::Firebase;
+use url::Url;
 
 #[test]
 fn builds_auth_url() {
@@ -62,8 +64,17 @@ fn test_ops() {
     let f = Firebase::new("http://db.fe/").ok().expect("url err");
     let f = f.at("lol").ok().expect("extend err");
     let req = f.end_at(13).limit_to_first(4).equal_to(8).shallow(false);
-    let a = "http://db.fe//lol.json?limitToFirst=4&endAt=13&equalTo=8&shallow=false";
-    assert_eq!(a, req.get_url());
+    let correct = Url::parse("http://db.fe//lol.json?limitToFirst=4&endAt=13&equalTo=8&shallow=false").ok().unwrap();
+    let generated = Url::parse(&req.get_url()).ok().unwrap();
+
+    let corr_pairs = correct.query_pairs().unwrap();
+    let gen_pairs  = generated.query_pairs().unwrap();
+
+    assert_eq!(corr_pairs.len(), gen_pairs.len());
+
+    for pair in corr_pairs.iter() {
+        assert!(gen_pairs.contains(pair));
+    }
 }
 
 #[test]
