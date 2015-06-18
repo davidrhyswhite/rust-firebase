@@ -352,17 +352,17 @@ const AUTH:           &'static str = "auth";
 
 #[derive(Debug)]
 pub struct FbOps<'l> {
-    order_by:       Option<&'l str>,
-    limit_to_first: Option<u32>,
-    limit_to_last:  Option<u32>,
-    start_at:       Option<u32>,
-    end_at:         Option<u32>,
-    equal_to:       Option<u32>,
-    shallow:        Option<bool>,
-    format:         Option<bool>,
+    pub order_by:       Option<&'l str>,
+    pub limit_to_first: Option<u32>,
+    pub limit_to_last:  Option<u32>,
+    pub start_at:       Option<u32>,
+    pub end_at:         Option<u32>,
+    pub equal_to:       Option<u32>,
+    pub shallow:        Option<bool>,
+    pub format:         Option<bool>,
 }
 
-pub const DEFAULT: FbOps<'static> = FbOps {
+pub const DEFAULT_OPS: FbOps<'static> = FbOps {
     order_by:       None,
     limit_to_first: None,
     limit_to_last:  None,

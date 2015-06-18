@@ -2,6 +2,7 @@ extern crate firebase;
 extern crate url;
 
 use firebase::Firebase;
+use firebase::{FbOps, DEFAULT_OPS};
 use url::Url;
 
 use std::sync::{Arc, Mutex};
@@ -98,6 +99,24 @@ fn test_async_get() {
 
     assert!(!*finished.lock().unwrap());
     thread.join().ok();
+}
+
+#[test]
+fn test_ops_ctor() {
+    let fb = Firebase::new("db.fb.com").ok().unwrap();
+    let query = fb.ops(&FbOps {
+        order_by:       Some("Hello World"),
+        limit_to_first: Some(5),
+        end_at:         Some(7),
+        equal_to:       Some(3),
+        shallow:        Some(true),
+        format:         Some(true),
+        .. DEFAULT_OPS
+    });
+
+    let corr = Url::parse("https://db.fb.com/?limitToFirst=5&orderBy=Hello+World&equalTo=3&format=export&shallow=true&endAt=7").ok().unwrap();
+    let this = Url::parse(&query.get_url()).ok().unwrap();
+    assert_queries(&corr, &this);
 }
 
 fn assert_queries(a: &Url, b: &Url) {
