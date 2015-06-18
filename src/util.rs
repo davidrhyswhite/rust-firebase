@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 pub fn trim_right<'a, 'b>(uri: &'a str, end: &'b str) -> &'a str {
     let n = uri.len();
     let p = end.len();
@@ -20,18 +22,18 @@ pub fn trim_left<'a, 'b>(uri: &'a str, start: &'b str) -> &'a str {
     }
 }
 
-pub fn add_right(uri: &str, end: &str) -> String {
+pub fn add_right<'l>(uri: &'l str, end: &str) -> Cow<'l, str> {
     let n = uri.len();
     let p = end.len();
 
     if n >= p && &uri[(n - p)..n] == end {
-        uri.to_string()
+        Cow::Borrowed(uri)
     } else {
-        uri.to_string() + end
+        Cow::Owned(uri.to_string() + end)
     }
 }
 
-pub fn add_https(uri: &str) -> String {
+pub fn add_https<'l>(uri: &'l str) -> Cow<'l, str> {
     let protocol = "https://";
     let other = "http://";
     let p = protocol.len();
@@ -39,12 +41,8 @@ pub fn add_https(uri: &str) -> String {
     let n = uri.len();
 
     if n < p || &uri[0..p] != protocol && &uri[0..o] != other {
-        protocol.to_string() + uri
+        Cow::Owned(protocol.to_string() + uri)
     } else {
-        uri.to_string()
+        Cow::Borrowed(uri)
     }
 }
-//
-// pub fn join(left: &str, right: &str, delim: &str) -> String {
-//     trim_right(left, delim).to_string() + delim + trim_left(right, delim)
-// }
