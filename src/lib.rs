@@ -5,13 +5,16 @@ mod util;
 
 use std::str;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::thread;
+use std::thread::JoinHandle;
 
 use curl::http;
 use url::Url;
 
 #[derive(Clone)]
 pub struct Firebase {
-    url: Url,
+    url: Arc<Url>,
 }
 
 impl Firebase {
@@ -21,7 +24,7 @@ impl Firebase {
         try!( unwrap_path(&url) );
 
         Ok(Firebase {
-            url: url,
+            url: Arc::new(url),
         })
     }
 
@@ -30,7 +33,7 @@ impl Firebase {
         try!( unwrap_path(&url) );
 
         Ok(Firebase {
-            url: url,
+            url: Arc::new(url),
         })
     }
 
@@ -43,12 +46,12 @@ impl Firebase {
         url.set_query_from_pairs(opts.into_iter());
 
         Ok(Firebase {
-            url: url,
+            url: Arc::new(url),
         })
     }
 
     pub fn at(&self, add_path: &str) -> Result<Self, ParseError> {
-        let mut url = self.url.clone();
+        let mut url = (*self.url).clone();
 
         { // Add path to original path, already checked for path.
             let mut path = url.path_mut().unwrap();
@@ -67,7 +70,7 @@ impl Firebase {
         }
 
         Ok(Firebase {
-            url: url,
+            url: Arc::new(url),
         })
     }
 
@@ -97,6 +100,31 @@ impl Firebase {
 
     pub fn remove(&self) -> Result<Response, ReqErr> {
         self.request(Method::DELETE, None)
+    }
+
+    pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
+    where F: Fn(Result<Response, ReqErr>) + Send + 'static {
+        Firebase::request_url_async(&self.url, Method::GET, None, callback)
+    }
+
+    pub fn set_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
+    where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
+        Firebase::request_url_async(&self.url, Method::PUT, Some(data.into()), callback)
+    }
+
+    pub fn push_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
+    where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
+        Firebase::request_url_async(&self.url, Method::POST, Some(data.into()), callback)
+    }
+
+    pub fn update_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
+    where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
+        Firebase::request_url_async(&self.url, Method::PATCH, Some(data.into()), callback)
+    }
+
+    pub fn remove_async<F>(&self, callback: F) -> JoinHandle<()>
+    where F: Fn(Result<Response, ReqErr>) + Send + 'static {
+        Firebase::request_url_async(&self.url, Method::DELETE, None, callback)
     }
 
     pub fn order_by(&self, key: &str) -> FirebaseParams {
@@ -166,15 +194,34 @@ impl Firebase {
             code: res.get_code(),
         })
     }
+
+    fn request_url_async<F>(url: &Arc<Url>, method: Method, data: Option<String>, callback: F) -> JoinHandle<()>
+    where F: Fn(Result<Response, ReqErr>) + Send + 'static {
+        // Fast, because its in an arc.
+        let url = url.clone();
+
+        thread::spawn(move || {
+            callback(Firebase::request_url(&url, method, data.as_ref().map(|s| s as &str)));
+        })
+    }
 }
 
 #[derive(Clone)]
 pub struct FirebaseParams {
-    url: Url,
+    url: Arc<Url>,
     params: HashMap<&'static str, String>,
 }
 
 impl FirebaseParams {
+    pub fn get(&self) -> Result<Response, ReqErr> {
+        Firebase::request_url(&self.url, Method::GET, None)
+    }
+
+    pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
+    where F: Fn(Result<Response, ReqErr>) + Send + 'static {
+        Firebase::request_url_async(&self.url, Method::GET, None, callback)
+    }
+
     pub fn order_by(self, key: &str) -> Self {
         self.add_param(ORDER_BY, key)
     }
@@ -219,7 +266,11 @@ impl FirebaseParams {
     }
 
     fn set_params(&mut self) {
-        self.url.set_query_from_pairs(self.params.iter().map(|(&k, v)| (k, v as &str)));
+        // Only clones the url when edited. This is CoW
+        // Many threads can run requests without ever cloning the url.
+        let mut url = (*self.url).clone();
+        url.set_query_from_pairs(self.params.iter().map(|(&k, v)| (k, v as &str)));
+        self.url = Arc::new(url);
     }
 
     fn get_auth(url: &Url) -> HashMap<&'static str, String> {
@@ -237,7 +288,7 @@ impl FirebaseParams {
 
     fn new<T: ToString>(url: &Url, key: &'static str, value: T) -> Self {
         let me = FirebaseParams {
-            url: url.clone(),
+            url: Arc::new(url.clone()),
             params: FirebaseParams::get_auth(&url),
         };
         me.add_param(key, value)
@@ -245,7 +296,7 @@ impl FirebaseParams {
 
     fn from_ops(url: &Url, opts: &FbOps) -> Self {
         let mut me = FirebaseParams {
-            url: url.clone(),
+            url: Arc::new(url.clone()),
             params: FirebaseParams::get_auth(&url),
         };
         if let Some(order) = opts.order_by {
@@ -278,10 +329,6 @@ impl FirebaseParams {
         me.set_params();
         me
     }
-
-    pub fn get(&self) -> Result<Response, ReqErr> {
-        Firebase::request_url(&self.url, Method::GET, None)
-    }
 }
 
 enum Method {
@@ -303,6 +350,7 @@ const FORMAT:         &'static str = "format";
 const EXPORT:         &'static str = "export";
 const AUTH:           &'static str = "auth";
 
+#[derive(Debug)]
 pub struct FbOps<'l> {
     order_by:       Option<&'l str>,
     limit_to_first: Option<u32>,
@@ -325,16 +373,19 @@ pub const DEFAULT: FbOps<'static> = FbOps {
     format:         None,
 };
 
+#[derive(Debug)]
 pub enum ReqErr {
     RespNotUTF8(str::Utf8Error),
     NetworkErr(curl::ErrCode),
 }
 
+#[derive(Debug)]
 pub enum ParseError {
     UrlHasNoPath,
     Parser(url::ParseError),
 }
 
+#[derive(Debug)]
 pub struct Response {
     pub body: String,
     pub code: u32,

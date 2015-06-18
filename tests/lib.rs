@@ -4,6 +4,8 @@ extern crate url;
 use firebase::Firebase;
 use url::Url;
 
+use std::sync::{Arc, Mutex};
+
 #[test]
 fn builds_auth_url() {
     let f = Firebase::authed("http://db.rifebass.com/", "deadbeaf").ok().unwrap();
@@ -67,14 +69,7 @@ fn test_ops() {
     let correct = Url::parse("http://db.fe//lol.json?limitToFirst=4&endAt=13&equalTo=8&shallow=false").ok().unwrap();
     let generated = Url::parse(&req.get_url()).ok().unwrap();
 
-    let corr_pairs = correct.query_pairs().unwrap();
-    let gen_pairs  = generated.query_pairs().unwrap();
-
-    assert_eq!(corr_pairs.len(), gen_pairs.len());
-
-    for pair in corr_pairs.iter() {
-        assert!(gen_pairs.contains(pair));
-    }
+    assert_queries(&correct, &generated);
 }
 
 #[test]
@@ -85,12 +80,33 @@ fn test_auth_ops() {
     let correct = Url::parse("https://db.fe/lol.json?auth=key&orderBy=pts&limitToLast=5&startAt=8").ok().unwrap();
     let generated = Url::parse(&req.get_url()).ok().unwrap();
 
-    let corr_pairs = correct.query_pairs().unwrap();
-    let gen_pairs  = generated.query_pairs().unwrap();
+    assert_queries(&correct, &generated);
+}
 
-    assert_eq!(corr_pairs.len(), gen_pairs.len());
+#[test]
+fn test_async_get() {
+    let fb = Firebase::new("mybd.firebase.com").ok().unwrap();
+    let db_ref = fb.at("Profiles/a9sdc8asd99acc/profile_img").ok().unwrap();
 
-    for pair in corr_pairs.iter() {
-        assert!(gen_pairs.contains(pair));
+    let finished = Arc::new(Mutex::new(false));
+
+    let marker = finished.clone();
+    let thread = db_ref.get_async(move |_| {
+        let mut finished = marker.lock().unwrap();
+        *finished = true;
+    });
+
+    assert!(!*finished.lock().unwrap());
+    thread.join().ok();
+}
+
+fn assert_queries(a: &Url, b: &Url) {
+    let param_a = a.query_pairs().expect("Url should have query params.");
+    let param_b = b.query_pairs().expect("Url should have query params.");
+
+    assert_eq!(param_b.len(), param_a.len());
+
+    for pair in param_a.iter() {
+        assert!(param_b.contains(pair));
     }
 }
