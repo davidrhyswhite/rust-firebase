@@ -26,6 +26,8 @@ Or you can create an authenticated connection by supplying your [auth](https://w
 let firebase = Firebase::authed("https://<your-firebase>.firebaseio.com", "<token>");
 ```
 
+**NOTE:** You must send your requests through HTTPS or Firebase will reject it.
+
 ## Walking the database
 
 Reference nested objects in your server like so:
@@ -111,8 +113,3 @@ let json = "{ \"name\": \"David Smith\" }"
 let people = firebase.at("/earth/us/indiana");
 let response = episodes.push(json);
 ```
-
-### Error handling on requests.
-
-Responses will likely be Result<T, Optional<E>> types to make error handling
-more rust-like
