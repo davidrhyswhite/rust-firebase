@@ -362,16 +362,20 @@ pub struct FbOps<'l> {
     pub format:         Option<bool>,
 }
 
-pub const DEFAULT_OPS: FbOps<'static> = FbOps {
-    order_by:       None,
-    limit_to_first: None,
-    limit_to_last:  None,
-    start_at:       None,
-    end_at:         None,
-    equal_to:       None,
-    shallow:        None,
-    format:         None,
-};
+impl<'l> Default for FbOps<'l> {
+    fn default() -> Self {
+        FbOps {
+            order_by:       None,
+            limit_to_first: None,
+            limit_to_last:  None,
+            start_at:       None,
+            end_at:         None,
+            equal_to:       None,
+            shallow:        None,
+            format:         None,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum ReqErr {

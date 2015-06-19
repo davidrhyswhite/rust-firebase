@@ -2,7 +2,7 @@ extern crate firebase;
 extern crate url;
 
 use firebase::Firebase;
-use firebase::{FbOps, DEFAULT_OPS};
+use firebase::FbOps;
 use url::Url;
 
 use std::sync::{Arc, Mutex};
@@ -111,7 +111,7 @@ fn test_ops_ctor() {
         equal_to:       Some(3),
         shallow:        Some(true),
         format:         Some(true),
-        .. DEFAULT_OPS
+        .. FbOps::default()
     });
 
     let corr = Url::parse("https://db.fb.com/?limitToFirst=5&orderBy=Hello+World&equalTo=3&format=export&shallow=true&endAt=7").ok().unwrap();
