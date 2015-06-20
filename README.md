@@ -27,6 +27,7 @@ let firebase = Firebase::authed("https://<your-firebase>.firebaseio.com", "<toke
 ```
 
 **NOTE:** You must send your requests through HTTPS or Firebase will reject it.
+Not specifying HTTPS will also result in an error: ParseError::UrlIsNotHTTPS
 
 ## Walking the database
 

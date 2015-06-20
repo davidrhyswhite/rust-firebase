@@ -2,9 +2,8 @@ extern crate curl;
 extern crate url;
 extern crate rustc_serialize;
 
-mod util;
-
 use std::str;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
@@ -24,8 +23,10 @@ pub struct Firebase {
 
 impl Firebase {
     pub fn new(url: &str) -> Result<Self, ParseError> {
-        let url = util::add_https(&url);
         let url = try!( parse(&url) );
+        if url.scheme != "https" {
+            return Err(ParseError::UrlIsNotHTTPS);
+        }
         try!( unwrap_path(&url) );
 
         Ok(Firebase {
@@ -43,8 +44,10 @@ impl Firebase {
     }
 
     pub fn authed(url: &str, auth_token: &str) -> Result<Self, ParseError> {
-        let url = util::add_https(&url);
         let mut url = try!( parse(&url) );
+        if url.scheme != "https" {
+            return Err(ParseError::UrlIsNotHTTPS);
+        }
         try!( unwrap_path(&url) );
 
         let opts = vec![ (AUTH, auth_token) ];
@@ -62,12 +65,14 @@ impl Firebase {
             let mut path = url.path_mut().unwrap();
             // Remove .json from the old path's end.
             if let Some(end) = path.pop() {
-                let new_end = util::trim_right(&end, ".json").to_string();
-                path.push(new_end);
+                path.push(end.trim_right_matches(".json").to_string());
             }
-            let add_path = util::trim_right(add_path, "/");
-            let add_path = util::trim_left(add_path, "/");
-            let add_path = util::add_right(add_path, ".json");
+            let add_path = add_path.trim_matches('/');
+            let add_path = if !add_path.ends_with(".json") {
+                Cow::Owned(add_path.to_string() + ".json")
+            } else {
+                Cow::Borrowed(add_path)
+            };
 
             for component in add_path.split("/").into_iter() {
                 path.push(component.to_string());
@@ -384,6 +389,7 @@ impl<'l> Default for FbOps<'l> {
 
 #[derive(Debug)]
 pub enum ReqErr {
+    ReqNotJSON,
     RespNotUTF8(str::Utf8Error),
     NetworkErr(curl::ErrCode),
 }
@@ -391,6 +397,7 @@ pub enum ReqErr {
 #[derive(Debug)]
 pub enum ParseError {
     UrlHasNoPath,
+    UrlIsNotHTTPS,
     Parser(url::ParseError),
 }
 
@@ -427,3 +434,7 @@ fn unwrap_path(url: &Url) -> Result<&[String], ParseError> {
         Some(p) => return Ok(p),
     }
 }
+
+// pub trait ToJsonStr {
+//     fn to_json_str(&Self) -> Result<&str, >;
+// }
