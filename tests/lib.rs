@@ -1,8 +1,7 @@
 extern crate firebase;
 extern crate url;
 
-use firebase::Firebase;
-use firebase::FbOps;
+use firebase::*;
 use url::Url;
 
 use std::sync::{Arc, Mutex};
@@ -117,6 +116,29 @@ fn test_ops_ctor() {
     let corr = Url::parse("https://db.fb.com/?limitToFirst=5&orderBy=Hello+World&equalTo=3&format=export&shallow=true&endAt=7").ok().unwrap();
     let this = Url::parse(&query.get_url()).ok().unwrap();
     assert_queries(&corr, &this);
+}
+
+#[test]
+fn test_resp_json() {
+    let response = Response {
+        code: 200,
+        body: "{
+            \"id\":   \"mongo id\",
+            \"data\": \"Hello World!\"
+        }".to_string(),
+    };
+
+    let record = match response.json().ok().expect("Should've parsed json") {
+        Json::Object(o) => o,
+        _ => panic!("This shouldv'e been a object!"),
+    };
+
+    let data = record.get("data").expect("Should've had a data member");
+
+    match data.clone() {
+        Json::String(d) => assert_eq!("Hello World!", d),
+        _ => panic!("This shouldv'e been a string!"),
+    }
 }
 
 fn assert_queries(a: &Url, b: &Url) {
