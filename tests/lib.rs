@@ -1,5 +1,6 @@
 extern crate firebase;
 extern crate url;
+extern crate rustc_serialize;
 
 use firebase::*;
 use url::Url;
@@ -141,6 +142,22 @@ fn test_resp_json() {
     }
 }
 
+#[test]
+fn test_resp_struct_easy() {
+    let response = Response {
+        code: 200,
+        body: "{
+            \"fizz\": 3,
+            \"buzz\": 5
+        }".to_string(),
+    };
+
+    let bee: FizzBuzz = response.parse().ok().expect("Should parse into FizzBuzz struct");
+
+    assert_eq!(bee.fizz, 3);
+    assert_eq!(bee.buzz, 5);
+}
+
 fn assert_queries(a: &Url, b: &Url) {
     let param_a = a.query_pairs().expect("Url should have query params.");
     let param_b = b.query_pairs().expect("Url should have query params.");
@@ -150,4 +167,10 @@ fn assert_queries(a: &Url, b: &Url) {
     for pair in param_a.iter() {
         assert!(param_b.contains(pair));
     }
+}
+
+#[derive(RustcDecodable)]
+struct FizzBuzz {
+    fizz: u32,
+    buzz: u32,
 }
