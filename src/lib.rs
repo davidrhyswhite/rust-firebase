@@ -435,6 +435,23 @@ fn unwrap_path(url: &Url) -> Result<&[String], ParseError> {
     }
 }
 
+// This code will happen when Trait Specialization becomes available
+// in rust.
 // pub trait ToJsonStr {
-//     fn to_json_str(&Self) -> Result<&str, >;
+//     fn to_json_str(&self) -> Result<Cow<str>, /* TODO */ Box<Error>>;
+// }
+//
+// impl<'l> ToJsonStr for &'l str {
+//     fn to_json_str(&self) -> Result<Cow<str>, /* TODO */ Box<Error>> {
+//         Ok(Cow::Borrowed(self))
+//     }
+// }
+//
+// impl<S> ToJsonStr for S where S: Encodable {
+//     fn to_json_str(&self) -> Result<Cow<str>, /* TODO */ Box<Error>> {
+//         match json::encode(self) {
+//             Ok(encoded) => Ok(Cow::Owned(encoded)),
+//             Err(e)      => Err(Box::new(e)),
+//         }
+//     }
 // }
