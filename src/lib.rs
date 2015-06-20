@@ -13,7 +13,9 @@ use std::thread::JoinHandle;
 use curl::http;
 use url::Url;
 
-pub use rustc_serialize::json::{Json, BuilderError};
+use rustc_serialize::Decodable;
+use rustc_serialize::json;
+pub use rustc_serialize::json::{Json, BuilderError, DecoderError};
 
 #[derive(Clone)]
 pub struct Firebase {
@@ -400,11 +402,15 @@ pub struct Response {
 
 impl Response {
     pub fn is_success(&self) -> bool {
-        self.code < 400
+        self.code == 200
     }
 
-    pub fn to_json(&self) -> Result<Json, BuilderError> {
+    pub fn json(&self) -> Result<Json, BuilderError> {
         Json::from_str(&self.body)
+    }
+
+    pub fn parse<D>(&self) -> Result<D, DecoderError> where D: Decodable {
+        json::decode(&self.body)
     }
 }
 
