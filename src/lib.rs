@@ -22,6 +22,16 @@ pub struct Firebase {
 }
 
 impl Firebase {
+    /// Creates a new Firebase instance from the url of the fb server
+    /// The url should be a valid **HTTPS** url, anything else will
+    /// result in an error:
+    /// https://<your firebase>.firebaseio.com
+    ///
+    /// # Failures
+    /// - If a url is not specified with the HTTPS scheme, a ```Err(ParseError::UrlIsNotHTTPS)```
+    ///   will be returned.
+    /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
+    ///   will be returned.
     pub fn new(url: &str) -> Result<Self, ParseError> {
         let url = try!( parse(&url) );
         if url.scheme != "https" {
@@ -34,6 +44,12 @@ impl Firebase {
         })
     }
 
+    /// Creates a firebase reference from a borrow of a Url instance.
+    /// # Failures
+    /// - If a url is not specified with the HTTPS scheme, a ```Err(ParseError::UrlIsNotHTTPS)```
+    ///   will be returned.
+    /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
+    ///   will be returned.
     pub fn from_url(url: &Url) -> Result<Self, ParseError> {
         let url = url.clone();
         try!( unwrap_path(&url) );
@@ -43,6 +59,20 @@ impl Firebase {
         })
     }
 
+    /// Creates a new authenticated Firebase instance from the firebaseio url and an auth token.
+    ///
+    /// # Examples
+    /// ```
+    /// # use firebase::Firebase;
+    /// let fb = Firebase::authed("https://myfb.firebaseio.com", "deadbeefcafe");
+    /// // The url shoud now be: https://myfb.firebaseio.com?auth=deadbeefcafe
+    /// ```
+    ///
+    /// # Failures
+    /// - If a url is not specified with the HTTPS scheme, a ```Err(ParseError::UrlIsNotHTTPS)```
+    ///   will be returned.
+    /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
+    ///   will be returned.
     pub fn authed(url: &str, auth_token: &str) -> Result<Self, ParseError> {
         let mut url = try!( parse(&url) );
         if url.scheme != "https" {
@@ -58,6 +88,16 @@ impl Firebase {
         })
     }
 
+    /// Creates a new firebase instance that extends the path of an old firebase instance.
+    /// Each time a reference is created a clone of the Firebase instance if done, all
+    /// Firebase instances follow this immutable style.
+    ///
+    /// #Examples
+    /// ```
+    /// # use firebase::Firebase;
+    /// let fb = Firebase::new("https://myfb.firebaseio.com").unwrap(); // Points to root of db. ( / )
+    /// let yasha = fb.at("/friends/yasha").unwrap();                   // References /friends/yasha
+    /// let messages = yasha.at("messages");                            // /friends/yasha/messages
     pub fn at(&self, add_path: &str) -> Result<Self, ParseError> {
         let mut url = (*self.url).clone();
 
@@ -84,6 +124,29 @@ impl Firebase {
         })
     }
 
+    /// Creates a FirebaseParams instance, this instance has query parameters
+    /// that are associated with it and that are used in every request made.
+    /// Since query parameters only affect incomming data from Firebase, you can only
+    /// GET data with a FirebaseParams instance.
+    ///
+    /// This constructor takes in a FbOps struct to define all of its parameters,
+    /// all undefined parameters can be set to null by extending a new FbOps struct
+    /// by its default.
+    ///
+    /// # Examples
+    /// ```
+    /// # use firebase::*;
+    /// let fb = Firebase::new("https://db.fb.com").unwrap();
+    /// let query = fb.ops(&FbOps {
+    ///    order_by:       Some("Hello World"),
+    ///    limit_to_first: Some(5),
+    ///    end_at:         Some(7),
+    ///    equal_to:       Some(3),
+    ///    shallow:        Some(true),
+    ///    format:         Some(true),
+    ///    .. FbOps::default()
+    /// });
+    /// ```
     pub fn ops(&self, opts: &FbOps) -> FirebaseParams {
         FirebaseParams::from_ops(&self.url, opts)
     }
@@ -92,46 +155,96 @@ impl Firebase {
         FirebaseParams::new(&self.url, key, value)
     }
 
+    /// Gets data from Firebase.
+    /// # Example
+    /// ```
+    /// # use firebase::Firebase;
+    /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
+    /// let episode = firebase.at("/futurama/episodes/140").unwrap();
+    /// let info = episode.get();
+    /// ```
     pub fn get(&self) -> Result<Response, ReqErr> {
         self.request(Method::GET, None)
     }
 
+    /// Sets data to Firebase.
+    /// # Example
+    /// ```
+    /// # use firebase::Firebase;
+    /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
+    /// let episode = firebase.at("/futurama/episodes/140/description").unwrap();
+    /// let info = episode.set("The Last Episode!");
+    /// ```
     pub fn set(&self, data: &str) -> Result<Response, ReqErr> {
         self.request(Method::PUT, Some(data))
     }
 
+    /// Pushes data to Firebase.
+    /// # Example
+    /// ```
+    /// # use firebase::Firebase;
+    /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
+    /// let episodes = firebase.at("/futurama/episodes").unwrap();
+    /// let info = episodes.push("The Lost Episode");
+    /// ```
     pub fn push(&self, data: &str) -> Result<Response, ReqErr> {
         self.request(Method::POST, Some(data))
     }
 
+    /// Updates Firebase data.
+    /// # Example
+    /// ```
+    /// # use firebase::Firebase;
+    /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
+    /// let desc = firebase.at("/futurama/episodes/140/description").unwrap();
+    /// let info = desc.update("The Penultimate Episode!");
+    /// ```
     pub fn update(&self, data: &str) -> Result<Response, ReqErr> {
         self.request(Method::PATCH, Some(data))
     }
 
+    /// Removes Firebase data.
+    /// # Example
+    /// ```
+    /// # use firebase::Firebase;
+    /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
+    /// let episode = firebase.at("/futurama/episodes/141").unwrap();
+    /// episode.remove();
+    /// ```
     pub fn remove(&self) -> Result<Response, ReqErr> {
         self.request(Method::DELETE, None)
     }
 
+    /// Asynchronous version of the get method, takes a callback
+    /// and returns a handle to the thread making the request to Firebase.
     pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
         Firebase::request_url_async(&self.url, Method::GET, None, callback)
     }
 
+    /// Asynchronous version of the set method, takes a callback
+    /// and returns a handle to the thread making the request to Firebase.
     pub fn set_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
         Firebase::request_url_async(&self.url, Method::PUT, Some(data.into()), callback)
     }
 
+    /// Asynchronous version of the push method, takes a callback
+    /// and returns a handle to the thread making the request to Firebase.
     pub fn push_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
         Firebase::request_url_async(&self.url, Method::POST, Some(data.into()), callback)
     }
 
+    /// Asynchronous version of the update method, takes a callback
+    /// and returns a handle to the thread making the request to Firebase.
     pub fn update_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
         Firebase::request_url_async(&self.url, Method::PATCH, Some(data.into()), callback)
     }
 
+    /// Asynchronous version of the remove method, takes a callback
+    /// and returns a handle to the thread making the request to Firebase.
     pub fn remove_async<F>(&self, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
         Firebase::request_url_async(&self.url, Method::DELETE, None, callback)
@@ -169,6 +282,8 @@ impl Firebase {
         self.with_params(FORMAT, EXPORT)
     }
 
+    /// Returns the current URL as a string that will be used
+    /// to make the REST call when talking to Firebase.
     pub fn get_url(&self) -> String {
         self.url.serialize()
     }
