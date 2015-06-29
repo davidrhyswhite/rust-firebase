@@ -1,3 +1,5 @@
+# API Docs can be found [here](http://icanteden.com/rust-firebase/firebase/)
+
 # Rust Firebase
 
 Rust based library for interacting with the Firebase REST API.
