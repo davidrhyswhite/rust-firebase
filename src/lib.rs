@@ -1,3 +1,8 @@
+/*!
+ # Firebase REST API for Rust
+ Please have a look at the ```Firebase``` struct to get started.
+ */
+
 extern crate curl;
 extern crate url;
 extern crate rustc_serialize;
@@ -16,6 +21,7 @@ use rustc_serialize::Decodable;
 use rustc_serialize::json;
 pub use rustc_serialize::json::{Json, BuilderError, DecoderError};
 
+/// A Firebase instance to manage data.
 #[derive(Clone)]
 pub struct Firebase {
     url: Arc<Url>,
