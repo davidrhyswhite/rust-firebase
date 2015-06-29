@@ -21,11 +21,15 @@ pub struct Firebase {
     url: Arc<Url>,
 }
 
+// TODO: Change all instances of &str to Into<String>
+// TODO: Make FB instance from Url and String.
+// TODO: Make closure lives 'static or 'fb ?
 impl Firebase {
     /// Creates a new Firebase instance from the url of the fb server
     /// The url should be a valid **HTTPS** url, anything else will
     /// result in an error:
-    /// https://<your firebase>.firebaseio.com
+    ///
+    /// https://docs-examples.firebaseio.com/
     ///
     /// # Failures
     /// - If a url is not specified with the HTTPS scheme, a ```Err(ParseError::UrlIsNotHTTPS)```
@@ -95,9 +99,12 @@ impl Firebase {
     /// #Examples
     /// ```
     /// # use firebase::Firebase;
-    /// let fb = Firebase::new("https://myfb.firebaseio.com").unwrap(); // Points to root of db. ( / )
-    /// let yasha = fb.at("/friends/yasha").unwrap();                   // References /friends/yasha
-    /// let messages = yasha.at("messages");                            // /friends/yasha/messages
+    /// // Points to the root of the db ( / )
+    /// let fb = Firebase::new("https://myfb.firebaseio.com").unwrap();
+    /// // A new reference to /friends/yasha
+    /// let yasha = fb.at("/friends/yasha").unwrap();
+    /// // A new reference to /friends/yasha/messages
+    /// let messages = yasha.at("messages").unwrap();
     pub fn at(&self, add_path: &str) -> Result<Self, ParseError> {
         let mut url = (*self.url).clone();
 
@@ -130,7 +137,7 @@ impl Firebase {
     /// GET data with a FirebaseParams instance.
     ///
     /// This constructor takes in a FbOps struct to define all of its parameters,
-    /// all undefined parameters can be set to null by extending a new FbOps struct
+    /// all undefined parameters can be omitted by extending the new FbOps struct
     /// by its default.
     ///
     /// # Examples
@@ -151,12 +158,14 @@ impl Firebase {
         FirebaseParams::from_ops(&self.url, opts)
     }
 
-    fn with_params<T: ToString>(&self, key: &'static str, value: T) -> FirebaseParams {
-        FirebaseParams::new(&self.url, key, value)
+    /// Returns the current URL as a string that will be used
+    /// to make the REST call when talking to Firebase.
+    pub fn get_url(&self) -> String {
+        self.url.serialize()
     }
 
     /// Gets data from Firebase.
-    /// # Example
+    /// # Examples
     /// ```
     /// # use firebase::Firebase;
     /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
@@ -168,7 +177,7 @@ impl Firebase {
     }
 
     /// Sets data to Firebase.
-    /// # Example
+    /// # Examples
     /// ```
     /// # use firebase::Firebase;
     /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
@@ -180,7 +189,7 @@ impl Firebase {
     }
 
     /// Pushes data to Firebase.
-    /// # Example
+    /// # Examples
     /// ```
     /// # use firebase::Firebase;
     /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
@@ -192,7 +201,7 @@ impl Firebase {
     }
 
     /// Updates Firebase data.
-    /// # Example
+    /// # Examples
     /// ```
     /// # use firebase::Firebase;
     /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
@@ -204,7 +213,7 @@ impl Firebase {
     }
 
     /// Removes Firebase data.
-    /// # Example
+    /// # Examples
     /// ```
     /// # use firebase::Firebase;
     /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
@@ -217,6 +226,17 @@ impl Firebase {
 
     /// Asynchronous version of the get method, takes a callback
     /// and returns a handle to the thread making the request to Firebase.
+    /// # Examples
+    /// ```
+    /// # use firebase::Firebase;
+    /// let firebase = Firebase::new("https://shows.firebaseio.com").unwrap();
+    /// let desc = firebase.at("/futurama/episodes/141/description").unwrap();
+    /// let original = "The Lost Episode";
+    /// desc.get_async(move |result| {
+    ///     if result.unwrap().body != original {
+    ///         println!("The description changed!");
+    ///     }
+    /// });
     pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
         Firebase::request_url_async(&self.url, Method::GET, None, callback)
@@ -250,42 +270,59 @@ impl Firebase {
         Firebase::request_url_async(&self.url, Method::DELETE, None, callback)
     }
 
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and sorts this data by the key provided.
     pub fn order_by(&self, key: &str) -> FirebaseParams {
         self.with_params(ORDER_BY, key)
     }
 
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and limits the number of entries returned
+    /// on each request to the first ```count```. Often used with ```order_by```.
     pub fn limit_to_first(&self, count: u32) -> FirebaseParams {
         self.with_params(LIMIT_TO_FIRST, count)
     }
 
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and limits the number of entries returned
+    /// on each request to the last ```count```. Often used with ```order_by```.
     pub fn limit_to_last(&self, count: u32) -> FirebaseParams {
         self.with_params(LIMIT_TO_LAST, count)
     }
 
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and only returns entries starting after
+    /// the specified index. Often used with ```order_by```.
     pub fn start_at(&self, index: u32) -> FirebaseParams {
         self.with_params(START_AT, index)
     }
 
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and only returns entries appearing before
+    /// the specified index. Often used with ```order_by```.
     pub fn end_at(&self, index: u32) -> FirebaseParams {
         self.with_params(END_AT, index)
     }
 
-    pub fn equal_to(&self, value: u32) -> FirebaseParams {
-        self.with_params(EQUAL_TO, value)
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and returns only the entry at the specified
+    /// index. Often used with ```order_by```.
+    pub fn equal_to(&self, index: u32) -> FirebaseParams {
+        self.with_params(EQUAL_TO, index)
     }
 
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and only returns a shallow copy of the db
+    /// in every request.
     pub fn shallow(&self, flag: bool) -> FirebaseParams {
         self.with_params(SHALLOW, flag)
     }
 
+    /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
+    /// knows how to GET data, and formats the data to be exported in every
+    /// request. (e.g. includes a priority field).
     pub fn format(&self) -> FirebaseParams {
         self.with_params(FORMAT, EXPORT)
-    }
-
-    /// Returns the current URL as a string that will be used
-    /// to make the REST call when talking to Firebase.
-    pub fn get_url(&self) -> String {
-        self.url.serialize()
     }
 
     #[inline]
@@ -329,8 +366,37 @@ impl Firebase {
             callback(Firebase::request_url(&url, method, data.as_ref().map(|s| s as &str)));
         })
     }
+
+    fn with_params<T: ToString>(&self, key: &'static str, value: T) -> FirebaseParams {
+        FirebaseParams::new(&self.url, key, value)
+    }
 }
 
+/// The FirebaseParams struct is a Firebase reference with attatched
+/// query parameters that allow you to sort, limit, and format the data
+/// received from Firebase.
+///
+/// It has been made into its own struct because the Firebase API specifies
+/// that you can only GET data with query parameters. And so taking advantage of
+/// type systems, this struct can only GET data.
+///
+/// You can add any number of parameters to this struct by chaining calls together:
+///
+/// ```
+/// # use firebase::*;
+/// let episodes = Firebase::new("https://futurama.firebaseio.com/episodes/").unwrap();
+/// let alphabetic = episodes.order_by("\"title\"").limit_to_first(5);
+/// let first5 = alphabetic.get();
+/// ```
+///
+/// Setting the same parameter overwrites the previous parameter:
+///
+/// ```
+/// # use firebase::*;
+/// let episodes = Firebase::new("https://arrdev.firebaseio.com/episodes/").unwrap();
+/// // This will create a request that gets entries starting at the 0th index.
+/// let skip10 = episodes.start_at(10).start_at(0);
+/// ```
 #[derive(Clone)]
 pub struct FirebaseParams {
     url: Arc<Url>,
@@ -338,49 +404,85 @@ pub struct FirebaseParams {
 }
 
 impl FirebaseParams {
+    /// Gets data from Firebase.
+    /// # Examples
+    /// ```
+    /// # use firebase::Firebase;
+    /// let episodes = Firebase::new("https://futurama.firebaseio.com/episodes/").unwrap();
+    /// let alphabetic = episodes.order_by("\"title\"").limit_to_first(5);
+    /// let first5 = alphabetic.get();
+    /// ```
     pub fn get(&self) -> Result<Response, ReqErr> {
         Firebase::request_url(&self.url, Method::GET, None)
     }
 
+    /// Asynchronous version of the get method, takes a callback
+    /// and returns a handle to the thread making the request to Firebase.
     pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
         Firebase::request_url_async(&self.url, Method::GET, None, callback)
     }
 
+    /// Returns the current URL as a string that will be used
+    /// to make the REST call when talking to Firebase.
+    pub fn get_url(&self) -> String {
+        self.url.serialize()
+    }
+
+    // TODO: Wrap in quotes if not already. Or always wrap in quotes.
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and sorts this data by the key provided.
     pub fn order_by(self, key: &str) -> Self {
         self.add_param(ORDER_BY, key)
     }
 
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and limits the number of entries returned
+    /// on each request to the first ```count```. Often used with ```order_by```.
     pub fn limit_to_first(self, count: u32) -> Self {
         self.add_param(LIMIT_TO_FIRST, count)
     }
 
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and limits the number of entries returned
+    /// on each request to the last ```count```. Often used with ```order_by```.
     pub fn limit_to_last(self, count: u32) -> Self {
         self.add_param(LIMIT_TO_LAST, count)
     }
 
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and only returns entries starting after
+    /// the specified index. Often used with ```order_by```.
     pub fn start_at(self, index: u32) -> Self {
         self.add_param(START_AT, index)
     }
 
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and only returns entries appearing before
+    /// the specified index. Often used with ```order_by```.
     pub fn end_at(self, index: u32) -> Self {
         self.add_param(END_AT, index)
     }
 
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and returns only the entry at the specified
+    /// index. Often used with ```order_by```.
     pub fn equal_to(self, value: u32) -> Self {
         self.add_param(EQUAL_TO, value)
     }
 
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and only returns a shallow copy of the db
+    /// in every request.
     pub fn shallow(self, flag: bool) -> Self {
         self.add_param(SHALLOW, flag)
     }
 
+    /// Modifies the current ```FirebaseParams``` instance
+    /// and formats the data to be exported in every
+    /// request. (e.g. includes a priority field)
     pub fn format(self) -> Self {
         self.add_param(FORMAT, EXPORT)
-    }
-
-    pub fn get_url(&self) -> String {
-        self.url.serialize()
     }
 
     fn add_param<T: ToString>(mut self, key: &'static str, value: T) -> Self {
@@ -523,14 +625,29 @@ pub struct Response {
 }
 
 impl Response {
+    /// Returns true if the status code is 200
     pub fn is_success(&self) -> bool {
         self.code == 200
     }
 
+    /// Turns the response body into a Json enum.
     pub fn json(&self) -> Result<Json, BuilderError> {
         Json::from_str(&self.body)
     }
 
+    /// Encodes the data received into a struct matching the data.
+    /// # Examples
+    ///
+    /// ```
+    /// # use firebase::Response;
+    /// let response = Response {
+    ///     body: "324567898".to_string(),
+    ///     code: 200,
+    /// };
+    ///
+    /// let parsed: u32 = response.parse().unwrap();
+    /// println!("Data is: {}", parsed);
+    /// ```
     pub fn parse<D>(&self) -> Result<D, DecoderError> where D: Decodable {
         json::decode(&self.body)
     }
