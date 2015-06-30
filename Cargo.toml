@@ -5,6 +5,7 @@ version = "0.9.1"
 description = "Rust based library for working with Firebase, currently still under heavy development"
 readme = "README.md"
 repository = "https://github.com/davidrhyswhite/rust-firebase"
+documentation = "http://icanteden.com/rust-firebase/firebase/index.html"
 license = "MIT"
 authors = ["David White <david.white@spry-soft.com>", "Michael Eden <themichaeleden@gmail.com>"]
 exclude = ["examples/*", "tests/*"]
