@@ -2,9 +2,12 @@
 
 Rust based library for interacting with the Firebase REST API.
 
-## Documentation
+## Full Documentation
 
 API Docs can be found at [here](http://icanteden.com/rust-firebase/firebase/)
+
+The APIs in this README do not document all of the APIs available!
+Go to the official docs for the most up to date version of the API.
 
 ## Load the crate!
 
