@@ -3,19 +3,19 @@
  Please have a look at the ```Firebase``` struct to get started.
  */
 
-extern crate curl;
+extern crate hyper;
 extern crate url;
 extern crate rustc_serialize;
 
-use std::str;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
+use std::io::Read;
 
-use curl::http;
-use url::Url;
+use hyper::Client;
+use hyper::Url;
 
 use rustc_serialize::Decodable;
 use rustc_serialize::json;
@@ -337,29 +337,31 @@ impl Firebase {
     }
 
     fn request_url(url: &Url, method: Method, data: Option<&str>) -> Result<Response, ReqErr> {
-        let mut handler = http::handle();
+        let client = Client::new();
 
+        let url = url.clone();
         let req = match method {
-            Method::GET     => handler.get(   url),
-            Method::POST    => handler.post(  url, data.unwrap()),
-            Method::PUT     => handler.put(   url, data.unwrap()),
-            Method::PATCH   => handler.patch( url, data.unwrap()),
-            Method::DELETE  => handler.delete(url),
+            Method::GET     => client.get(url),
+            Method::POST    => client.post(url).body(data.unwrap()),
+            Method::PUT     => client.put(url).body(data.unwrap()),
+            Method::PATCH   => client.patch(url).body(data.unwrap()),
+            Method::DELETE  => client.delete(url),
         };
 
-        let res = match req.exec() {
+        let mut res = match req.send() {
             Ok(r)  => r,
             Err(e) => return Err(ReqErr::NetworkErr(e)),
         };
 
-        let body = match str::from_utf8(res.get_body()) {
-            Ok(b)  => b,
-            Err(e) => return Err(ReqErr::RespNotUTF8(e)),
-        };
+        let mut body = String::new();
+        match res.read_to_string(&mut body) {
+            Ok(_) => (),
+            Err(e) => return Err(ReqErr::ReadError(e)),
+        }
 
         Ok(Response {
-            body: body.to_string(),
-            code: res.get_code(),
+            body: body,
+            code: res.status.to_u16(),
         })
     }
 
@@ -613,8 +615,8 @@ impl<'l> Default for FbOps<'l> {
 #[derive(Debug)]
 pub enum ReqErr {
     ReqNotJSON,
-    RespNotUTF8(str::Utf8Error),
-    NetworkErr(curl::ErrCode),
+    ReadError(std::io::Error),
+    NetworkErr(hyper::error::Error),
 }
 
 #[derive(Debug)]
@@ -627,7 +629,7 @@ pub enum ParseError {
 #[derive(Debug)]
 pub struct Response {
     pub body: String,
-    pub code: u32,
+    pub code: u16,
 }
 
 impl Response {
