@@ -54,11 +54,18 @@ impl Firebase {
     ///   will be returned.
     /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
     ///   will be returned.
-    pub fn from_url(url: Url) -> Result<Self, ParseError> {
+    pub fn from_url(mut url: Url) -> Result<Self, ParseError> {
         try!( unwrap_path(&url) );
 
         if url.scheme() != "https" {
             return Err(ParseError::UrlIsNotHTTPS);
+        }
+
+        {
+            // Append initial .json
+            let mut last = url.path_segments().expect("last segment").last().unwrap().to_string();
+            let mut path = url.path_segments_mut().expect("path segments");
+            path.pop().push(&(last + ".json"));
         }
 
         Ok(Firebase {

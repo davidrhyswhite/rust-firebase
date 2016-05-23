@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 #[test]
 fn builds_auth_url() {
     let f = Firebase::authed("https://db.rifebass.com/", "deadbeaf").ok().unwrap();
-    assert_eq!(f.get_url(), "https://db.rifebass.com/?auth=deadbeaf");
+    assert_eq!(f.get_url(), "https://db.rifebass.com/.json?auth=deadbeaf");
 }
 
 #[test]
