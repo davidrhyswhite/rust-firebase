@@ -641,14 +641,20 @@ impl Response {
     /// # Examples
     ///
     /// ```
-    /// # use firebase::Response;
-    /// let response = Response {
-    ///     body: "324567898".to_string(),
-    ///     code: 200,
-    /// };
+    /// extern crate firebase;
+    /// extern crate hyper;
+    /// use hyper::status::StatusCode;
+    /// use firebase::Response;
     ///
-    /// let parsed: u32 = response.parse().unwrap();
-    /// println!("Data is: {}", parsed);
+    /// fn main() {
+    ///     let response = Response {
+    ///         body: "324567898".to_string(),
+    ///         code: StatusCode::Ok,
+    ///     };
+    ///
+    ///     let parsed: u32 = response.parse().unwrap();
+    ///     println!("Data is: {}", parsed);
+    /// }
     /// ```
     pub fn parse<D>(&self) -> Result<D, DecoderError> where D: Decodable {
         json::decode(&self.body)
