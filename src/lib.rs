@@ -3,19 +3,19 @@
  Please have a look at the ```Firebase``` struct to get started.
  */
 
-extern crate curl;
+extern crate hyper;
 extern crate url;
 extern crate rustc_serialize;
 
 use std::str;
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
-
-use curl::http;
+use hyper::Client;
+use hyper::status::StatusCode;
 use url::Url;
+use std::io::{self, Read};
 
 use rustc_serialize::Decodable;
 use rustc_serialize::json;
@@ -24,7 +24,7 @@ pub use rustc_serialize::json::{Json, BuilderError, DecoderError};
 /// A Firebase instance to manage data.
 #[derive(Clone)]
 pub struct Firebase {
-    url: Arc<Url>,
+    url: Url,
 }
 
 // TODO: Change all instances of &str to Into<String>
@@ -43,15 +43,9 @@ impl Firebase {
     /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
     ///   will be returned.
     pub fn new(url: &str) -> Result<Self, ParseError> {
-        let url = try!( parse(&url) );
-        if url.scheme != "https" {
-            return Err(ParseError::UrlIsNotHTTPS);
-        }
-        try!( unwrap_path(&url) );
+        let url = try!(Url::parse(&url));
 
-        Ok(Firebase {
-            url: Arc::new(url),
-        })
+        Firebase::from_url(url)
     }
 
     /// Creates a firebase reference from a borrow of a Url instance.
@@ -60,12 +54,22 @@ impl Firebase {
     ///   will be returned.
     /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
     ///   will be returned.
-    pub fn from_url(url: &Url) -> Result<Self, ParseError> {
-        let url = url.clone();
+    pub fn from_url(mut url: Url) -> Result<Self, ParseError> {
         try!( unwrap_path(&url) );
 
+        if url.scheme() != "https" {
+            return Err(ParseError::UrlIsNotHTTPS);
+        }
+
+        {
+            // Append initial .json
+            let mut last = url.path_segments().expect("last segment").last().unwrap().to_string();
+            let mut path = url.path_segments_mut().expect("path segments");
+            path.pop().push(&(last + ".json"));
+        }
+
         Ok(Firebase {
-            url: Arc::new(url),
+            url: url,
         })
     }
 
@@ -84,18 +88,10 @@ impl Firebase {
     /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
     ///   will be returned.
     pub fn authed(url: &str, auth_token: &str) -> Result<Self, ParseError> {
-        let mut url = try!( parse(&url) );
-        if url.scheme != "https" {
-            return Err(ParseError::UrlIsNotHTTPS);
-        }
-        try!( unwrap_path(&url) );
+        let mut url = try!(Url::parse(&url));
+        url.query_pairs_mut().append_pair(AUTH, auth_token).finish();
 
-        let opts = vec![ (AUTH, auth_token) ];
-        url.set_query_from_pairs(opts.into_iter());
-
-        Ok(Firebase {
-            url: Arc::new(url),
-        })
+        Firebase::from_url(url)
     }
 
     /// Creates a new firebase instance that extends the path of an old firebase instance.
@@ -112,14 +108,14 @@ impl Firebase {
     /// // A new reference to /friends/yasha/messages
     /// let messages = yasha.at("messages").unwrap();
     pub fn at(&self, add_path: &str) -> Result<Self, ParseError> {
-        let mut url = (*self.url).clone();
+        let mut url = self.url.clone();
 
         { // Add path to original path, already checked for path.
-            let mut path = url.path_mut().unwrap();
             // Remove .json from the old path's end.
-            if let Some(end) = path.pop() {
-                path.push(end.trim_right_matches(".json").to_string());
-            }
+            let last = url.path_segments().expect("last segment").last().unwrap().to_string();
+            let mut path = url.path_segments_mut().expect("path segments");
+            path.pop().push(last.trim_right_matches(".json"));
+
             let add_path = add_path.trim_matches('/');
             let add_path = if !add_path.ends_with(".json") {
                 Cow::Owned(add_path.to_string() + ".json")
@@ -127,13 +123,13 @@ impl Firebase {
                 Cow::Borrowed(add_path)
             };
 
-            for component in add_path.split("/").into_iter() {
-                path.push(component.to_string());
+            for component in add_path.split("/") {
+                path.push(component);
             }
         }
 
         Ok(Firebase {
-            url: Arc::new(url),
+            url: url,
         })
     }
 
@@ -161,13 +157,13 @@ impl Firebase {
     /// });
     /// ```
     pub fn ops(&self, opts: &FbOps) -> FirebaseParams {
-        FirebaseParams::from_ops(&self.url, opts)
+        FirebaseParams::from_ops(self.url.clone(), opts)
     }
 
     /// Returns the current URL as a string that will be used
     /// to make the REST call when talking to Firebase.
-    pub fn get_url(&self) -> String {
-        self.url.serialize()
+    pub fn get_url(&self) -> &str {
+        self.url.as_str()
     }
 
     /// Gets data from Firebase.
@@ -245,35 +241,35 @@ impl Firebase {
     /// });
     pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
-        Firebase::request_url_async(&self.url, Method::GET, None, callback)
+        Firebase::request_url_async(self.url.clone(), Method::GET, None, callback)
     }
 
     /// Asynchronous version of the set method, takes a callback
     /// and returns a handle to the thread making the request to Firebase.
     pub fn set_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
-        Firebase::request_url_async(&self.url, Method::PUT, Some(data.into()), callback)
+        Firebase::request_url_async(self.url.clone(), Method::PUT, Some(data.into()), callback)
     }
 
     /// Asynchronous version of the push method, takes a callback
     /// and returns a handle to the thread making the request to Firebase.
     pub fn push_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
-        Firebase::request_url_async(&self.url, Method::POST, Some(data.into()), callback)
+        Firebase::request_url_async(self.url.clone(), Method::POST, Some(data.into()), callback)
     }
 
     /// Asynchronous version of the update method, takes a callback
     /// and returns a handle to the thread making the request to Firebase.
     pub fn update_async<S, F>(&self, data: S, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static, S: Into<String> {
-        Firebase::request_url_async(&self.url, Method::PATCH, Some(data.into()), callback)
+        Firebase::request_url_async(self.url.clone(), Method::PATCH, Some(data.into()), callback)
     }
 
     /// Asynchronous version of the remove method, takes a callback
     /// and returns a handle to the thread making the request to Firebase.
     pub fn remove_async<F>(&self, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
-        Firebase::request_url_async(&self.url, Method::DELETE, None, callback)
+        Firebase::request_url_async(self.url.clone(), Method::DELETE, None, callback)
     }
 
     /// Creates a ```FirebaseParams``` instance, a Firebase struct that only
@@ -333,48 +329,40 @@ impl Firebase {
 
     #[inline]
     fn request(&self, method: Method, data: Option<&str>) -> Result<Response, ReqErr> {
-        Firebase::request_url(&self.url, method, data)
+        Firebase::request_url(self.url.clone(), method, data)
     }
 
-    fn request_url(url: &Url, method: Method, data: Option<&str>) -> Result<Response, ReqErr> {
-        let mut handler = http::handle();
+    fn request_url(url: Url, method: Method, data: Option<&str>) -> Result<Response, ReqErr> {
+        let client = Client::new();
 
         let req = match method {
-            Method::GET     => handler.get(   url),
-            Method::POST    => handler.post(  url, data.unwrap()),
-            Method::PUT     => handler.put(   url, data.unwrap()),
-            Method::PATCH   => handler.patch( url, data.unwrap()),
-            Method::DELETE  => handler.delete(url),
+            Method::GET     => client.get(url),
+            Method::POST    => client.post(url).body(data.expect("data")),
+            Method::PUT     => client.put(url).body(data.expect("data")),
+            Method::PATCH   => client.patch(url).body(data.expect("data")),
+            Method::DELETE  => client.delete(url),
         };
 
-        let res = match req.exec() {
-            Ok(r)  => r,
-            Err(e) => return Err(ReqErr::NetworkErr(e)),
-        };
+        let mut res = try!(req.send());
 
-        let body = match str::from_utf8(res.get_body()) {
-            Ok(b)  => b,
-            Err(e) => return Err(ReqErr::RespNotUTF8(e)),
-        };
+        let mut body = String::new();
+        try!(res.read_to_string(&mut body));
 
         Ok(Response {
-            body: body.to_string(),
-            code: res.get_code(),
+            body: body,
+            code: res.status,
         })
     }
 
-    fn request_url_async<F>(url: &Arc<Url>, method: Method, data: Option<String>, callback: F) -> JoinHandle<()>
+    fn request_url_async<F>(url: Url, method: Method, data: Option<String>, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
-        // Fast, because its in an arc.
-        let url = url.clone();
-
         thread::spawn(move || {
-            callback(Firebase::request_url(&url, method, data.as_ref().map(|s| s as &str)));
+            callback(Firebase::request_url(url, method, data.as_ref().map(|s| s as &str)));
         })
     }
 
     fn with_params<T: ToString>(&self, key: &'static str, value: T) -> FirebaseParams {
-        FirebaseParams::new(&self.url, key, value)
+        FirebaseParams::new(self.url.clone(), key, value)
     }
 }
 
@@ -405,7 +393,7 @@ impl Firebase {
 /// ```
 #[derive(Clone)]
 pub struct FirebaseParams {
-    url: Arc<Url>,
+    url: Url,
     params: HashMap<&'static str, String>,
 }
 
@@ -419,20 +407,20 @@ impl FirebaseParams {
     /// let first5 = alphabetic.get();
     /// ```
     pub fn get(&self) -> Result<Response, ReqErr> {
-        Firebase::request_url(&self.url, Method::GET, None)
+        Firebase::request_url(self.url.clone(), Method::GET, None)
     }
 
     /// Asynchronous version of the get method, takes a callback
     /// and returns a handle to the thread making the request to Firebase.
     pub fn get_async<F>(&self, callback: F) -> JoinHandle<()>
     where F: Fn(Result<Response, ReqErr>) + Send + 'static {
-        Firebase::request_url_async(&self.url, Method::GET, None, callback)
+        Firebase::request_url_async(self.url.clone(), Method::GET, None, callback)
     }
 
     /// Returns the current URL as a string that will be used
     /// to make the REST call when talking to Firebase.
-    pub fn get_url(&self) -> String {
-        self.url.serialize()
+    pub fn get_url(&self) -> &str {
+        self.url.as_str()
     }
 
     // TODO: Wrap in quotes if not already. Or always wrap in quotes.
@@ -499,38 +487,30 @@ impl FirebaseParams {
     }
 
     fn set_params(&mut self) {
-        // Only clones the url when edited. This is CoW
-        // Many threads can run requests without ever cloning the url.
-        let mut url = (*self.url).clone();
-        url.set_query_from_pairs(self.params.iter().map(|(&k, v)| (k, v as &str)));
-        self.url = Arc::new(url);
+        self.url.query_pairs_mut()
+            .extend_pairs(self.params.iter().map(|(&k, v)| (k, v as &str)))
+            .finish();
     }
 
     fn get_auth(url: &Url) -> HashMap<&'static str, String> {
-        let mut pair: HashMap<&'static str, String> = HashMap::new();
-
-        if let Some(queries) = url.query_pairs() {
-            for &(ref k, ref v) in queries.iter() {
-                if k == AUTH {
-                    pair.insert(AUTH, v.to_string());
-                }
-            }
-        }
-        pair
+        url.query_pairs()
+            .filter(|&(ref k,_)| k == AUTH)
+            .map(|(_, v)| (AUTH, v.into_owned()))
+            .collect()
     }
 
-    fn new<T: ToString>(url: &Url, key: &'static str, value: T) -> Self {
+    fn new<T: ToString>(url: Url, key: &'static str, value: T) -> Self {
         let me = FirebaseParams {
-            url: Arc::new(url.clone()),
             params: FirebaseParams::get_auth(&url),
+            url: url,
         };
         me.add_param(key, value)
     }
 
-    fn from_ops(url: &Url, opts: &FbOps) -> Self {
+    fn from_ops(url: Url, opts: &FbOps) -> Self {
         let mut me = FirebaseParams {
-            url: Arc::new(url.clone()),
             params: FirebaseParams::get_auth(&url),
+            url: url,
         };
         if let Some(order) = opts.order_by {
             me.params.insert(ORDER_BY, order.to_string());
@@ -614,8 +594,22 @@ impl<'l> Default for FbOps<'l> {
 pub enum ReqErr {
     ReqNotJSON,
     RespNotUTF8(str::Utf8Error),
-    NetworkErr(curl::ErrCode),
+    Network(hyper::Error),
+    Io(io::Error),
 }
+
+impl From<hyper::Error> for ReqErr {
+    fn from(e: hyper::Error) -> Self {
+        ReqErr::Network(e)
+    }
+}
+
+impl From<io::Error> for ReqErr {
+    fn from(e: io::Error) -> Self {
+        ReqErr::Io(e)
+    }
+}
+
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -624,16 +618,22 @@ pub enum ParseError {
     Parser(url::ParseError),
 }
 
+impl From<url::ParseError> for ParseError {
+    fn from(e: url::ParseError) -> Self {
+        ParseError::Parser(e)
+    }
+}
+
 #[derive(Debug)]
 pub struct Response {
     pub body: String,
-    pub code: u32,
+    pub code: StatusCode,
 }
 
 impl Response {
     /// Returns true if the status code is 200
     pub fn is_success(&self) -> bool {
-        self.code == 200
+        self.code == StatusCode::Ok
     }
 
     /// Turns the response body into a Json enum.
@@ -645,29 +645,28 @@ impl Response {
     /// # Examples
     ///
     /// ```
-    /// # use firebase::Response;
-    /// let response = Response {
-    ///     body: "324567898".to_string(),
-    ///     code: 200,
-    /// };
+    /// extern crate firebase;
+    /// extern crate hyper;
+    /// use hyper::status::StatusCode;
+    /// use firebase::Response;
     ///
-    /// let parsed: u32 = response.parse().unwrap();
-    /// println!("Data is: {}", parsed);
+    /// fn main() {
+    ///     let response = Response {
+    ///         body: "324567898".to_string(),
+    ///         code: StatusCode::Ok,
+    ///     };
+    ///
+    ///     let parsed: u32 = response.parse().unwrap();
+    ///     println!("Data is: {}", parsed);
+    /// }
     /// ```
     pub fn parse<D>(&self) -> Result<D, DecoderError> where D: Decodable {
         json::decode(&self.body)
     }
 }
 
-fn parse(url: &str) -> Result<Url, ParseError> {
-    match Url::parse(&url) {
-        Ok(u)  => Ok(u),
-        Err(e) => Err(ParseError::Parser(e)),
-    }
-}
-
-fn unwrap_path(url: &Url) -> Result<&[String], ParseError> {
-    match url.path() {
+fn unwrap_path(url: &Url) -> Result<str::Split<char>, ParseError> {
+    match url.path_segments() {
         None    => return Err(ParseError::UrlHasNoPath),
         Some(p) => return Ok(p),
     }
