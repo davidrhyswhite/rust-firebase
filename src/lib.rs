@@ -82,16 +82,9 @@ impl Firebase {
     ///   will be returned.
     pub fn authed(url: &str, auth_token: &str) -> Result<Self, ParseError> {
         let mut url = try!(Url::parse(&url));
-        if url.scheme() != "https" {
-            return Err(ParseError::UrlIsNotHTTPS);
-        }
-        try!( unwrap_path(&url) );
-
         url.query_pairs_mut().append_pair(AUTH, auth_token).finish();
 
-        Ok(Firebase {
-            url: url,
-        })
+        Firebase::from_url(url)
     }
 
     /// Creates a new firebase instance that extends the path of an old firebase instance.
