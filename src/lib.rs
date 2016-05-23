@@ -44,14 +44,8 @@ impl Firebase {
     ///   will be returned.
     pub fn new(url: &str) -> Result<Self, ParseError> {
         let url = try!( parse(&url) );
-        if url.scheme() != "https" {
-            return Err(ParseError::UrlIsNotHTTPS);
-        }
-        try!( unwrap_path(&url) );
 
-        Ok(Firebase {
-            url: url,
-        })
+        Firebase::from_url(url)
     }
 
     /// Creates a firebase reference from a borrow of a Url instance.
@@ -62,6 +56,10 @@ impl Firebase {
     ///   will be returned.
     pub fn from_url(url: Url) -> Result<Self, ParseError> {
         try!( unwrap_path(&url) );
+
+        if url.scheme() != "https" {
+            return Err(ParseError::UrlIsNotHTTPS);
+        }
 
         Ok(Firebase {
             url: url,
