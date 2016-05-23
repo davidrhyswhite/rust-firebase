@@ -43,7 +43,7 @@ impl Firebase {
     /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
     ///   will be returned.
     pub fn new(url: &str) -> Result<Self, ParseError> {
-        let url = try!( parse(&url) );
+        let url = try!(Url::parse(&url));
 
         Firebase::from_url(url)
     }
@@ -81,7 +81,7 @@ impl Firebase {
     /// - If a url cannot be parsed into a valid url then a ```Err(ParseError::Parser(url::ParseError)```
     ///   will be returned.
     pub fn authed(url: &str, auth_token: &str) -> Result<Self, ParseError> {
-        let mut url = try!( parse(&url) );
+        let mut url = try!(Url::parse(&url));
         if url.scheme() != "https" {
             return Err(ParseError::UrlIsNotHTTPS);
         }
@@ -618,6 +618,12 @@ pub enum ParseError {
     Parser(url::ParseError),
 }
 
+impl From<url::ParseError> for ParseError {
+    fn from(e: url::ParseError) -> Self {
+        ParseError::Parser(e)
+    }
+}
+
 #[derive(Debug)]
 pub struct Response {
     pub body: String,
@@ -656,13 +662,6 @@ impl Response {
     /// ```
     pub fn parse<D>(&self) -> Result<D, DecoderError> where D: Decodable {
         json::decode(&self.body)
-    }
-}
-
-fn parse(url: &str) -> Result<Url, ParseError> {
-    match Url::parse(&url) {
-        Ok(u)  => Ok(u),
-        Err(e) => Err(ParseError::Parser(e)),
     }
 }
 
