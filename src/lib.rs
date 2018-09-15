@@ -115,7 +115,7 @@ impl Firebase {
         let mut url = (*self.url).clone();
 
         { // Add path to original path, already checked for path.
-            let mut path = url.path_mut().unwrap();
+            let path = url.path_mut().unwrap();
             // Remove .json from the old path's end.
             if let Some(end) = path.pop() {
                 path.push(end.trim_right_matches(".json").to_string());
@@ -340,11 +340,11 @@ impl Firebase {
         let mut handler = http::handle();
 
         let req = match method {
-            Method::GET     => handler.get(   url),
-            Method::POST    => handler.post(  url, data.unwrap()),
-            Method::PUT     => handler.put(   url, data.unwrap()),
-            Method::PATCH   => handler.patch( url, data.unwrap()),
-            Method::DELETE  => handler.delete(url),
+            Method::GET     => handler.get(url.to_string()),
+            Method::POST    => handler.post(url.to_string(), data.unwrap()),
+            Method::PUT     => handler.put(url.to_string(), data.unwrap()),
+            Method::PATCH   => handler.patch(url.to_string(), data.unwrap()),
+            Method::DELETE  => handler.delete(url.to_string()),
         };
 
         let res = match req.exec() {
